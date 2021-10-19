@@ -50,6 +50,10 @@ if( TRACCC_BUILD_CUDA )
   add_subdirectory( device/cuda )
 endif()
 
+if ( TRACCC_BUILD_SYCL )
+  add_subdirectory( device/sycl )
+endif()
+
 # Build the traccc code.
 add_subdirectory(core)
 add_subdirectory(io)
