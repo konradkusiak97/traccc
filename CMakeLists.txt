@@ -72,80 +72,9 @@ if( TRACCC_SETUP_EIGEN3 )
    endif()
 endif()
 
-# Set up Algebra Plugins.
-option( TRACCC_SETUP_ALGEBRA_PLUGINS
-   "Set up the Algebra Plugins target(s) explicitly" TRUE )
-option( TRACCC_USE_SYSTEM_ALGEBRA_PLUGINS
-   "Pick up an existing installation of Algebra Plugins from the build environment"
-   FALSE )
-if( TRACCC_SETUP_ALGEBRA_PLUGINS )
-   if( TRACCC_USE_SYSTEM_ALGEBRA_PLUGINS )
-      find_package( algebra-plugins REQUIRED )
-   else()
-      add_subdirectory( extern/algebra-plugins )
-   endif()
+if ( TRACCC_BUILD_SYCL )
+  add_subdirectory( device/sycl )
 endif()
-
-# Set up dfelibs.
-option( TRACCC_SETUP_DFELIBS
-   "Set up the dfelibs target(s) explicitly" TRUE )
-option( TRACCC_USE_SYSTEM_DFELIBS
-   "Pick up an existing installation of dfelibs from the build environment"
-   FALSE )
-if( TRACCC_SETUP_DFELIBS )
-   if( TRACCC_USE_SYSTEM_DFELIBS )
-      find_package( dfelibs REQUIRED )
-   else()
-      add_subdirectory( extern/dfelibs )
-   endif()
-endif()
-
-# Set up Detray.
-option( TRACCC_SETUP_DETRAY
-   "Set up the Detray target(s) explicitly" TRUE )
-option( TRACCC_USE_SYSTEM_DETRAY
-   "Pick up an existing installation of Detray from the build environment"
-   FALSE )
-if( TRACCC_SETUP_DETRAY )
-   if( TRACCC_USE_SYSTEM_DETRAY )
-      find_package( detray REQUIRED )
-   else()
-      add_subdirectory( extern/detray )
-   endif()
-endif()
-
-# Set up Acts.
-option( TRACCC_SETUP_ACTS
-   "Set up the Acts target(s) explicitly" TRUE )
-option( TRACCC_USE_SYSTEM_ACTS
-   "Pick up an existing installation of Acts from the build environment"
-   FALSE )
-if( TRACCC_SETUP_ACTS )
-   if( TRACCC_USE_SYSTEM_ACTS )
-      find_package( Acts REQUIRED )
-   else()
-      add_subdirectory( extern/acts )
-   endif()
-endif()
-
-# Set up GoogleTest.
-option( TRACCC_SETUP_GOOGLETEST
-   "Set up the GoogleTest target(s) explicitly" TRUE )
-option( TRACCC_USE_SYSTEM_GOOGLETEST
-   "Pick up an existing installation of GoogleTest from the build environment"
-   FALSE )
-if( TRACCC_SETUP_GOOGLETEST )
-   if( TRACCC_USE_SYSTEM_GOOGLETEST )
-      find_package( GTest REQUIRED )
-   else()
-      add_subdirectory( extern/googletest )
-   endif()
-endif()
-
-# option for algebra plugins (ARRAY EIGEN SMATRIX VC VECMEM)
-set(TRACCC_ALGEBRA_PLUGIN EIGEN CACHE STRING "Algebra plugin to use in the build")
-message(STATUS "Building with plugin type: " ${TRACCC_ALGEBRA_PLUGIN})
-add_definitions(-DALGEBRA_PLUGIN_INCLUDE_${TRACCC_ALGEBRA_PLUGIN})
 
 # Build the traccc code.
 add_subdirectory( core )
