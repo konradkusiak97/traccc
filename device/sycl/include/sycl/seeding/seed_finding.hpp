@@ -8,7 +8,9 @@
 #pragma once
 
 #include <algorithm>
-
+#include <sycl/seeding/detail/doublet_counter.hpp>          // TODO - implement (or take out of cuda namespace?)
+#include <cuda/seeding/detail/multiplet_estimator.hpp>      // not in cuda namespace
+#include <sycl/seeding/doublet_counting.hpp>                // TODO - implement
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <iostream>
@@ -92,9 +94,9 @@ struct seed_finding {
         first_alloc = false;
 
         // doublet counting
-        m_q->submit([&](cl::syc::handler h){
-            // Doublet count
-        })
+        traccc::sycl::doublet_counting(m_seedfinder_config, isp_container,
+                                       doublet_counter_container, m_mr, m_q);
+        
 
     }
 };
