@@ -8,15 +8,18 @@
 #pragma once
 
 #include <algorithm>
-#include <sycl/seeding/detail/doublet_counter.hpp>          // TODO - implement (or take out of cuda namespace?)
-#include <cuda/seeding/detail/multiplet_estimator.hpp>      // not in cuda namespace
-#include <sycl/seeding/doublet_counting.hpp>                // TODO - implement
+#include <sycl/seeding/detail/doublet_counter.hpp>          // take out of cuda namespace? it's duplicate code for sycl and cuda right now
+#include <cuda/seeding/detail/multiplet_estimator.hpp>      
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <iostream>
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/detail/spacepoint_grid.hpp>
 #include <seeding/seed_filtering.hpp>
+
+// kernel includes
+#include <sycl/seeding/doublet_counting.hpp>                
+
 
 namespace traccc {
 namespace sycl {
