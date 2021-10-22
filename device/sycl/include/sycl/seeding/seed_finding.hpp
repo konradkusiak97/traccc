@@ -8,7 +8,7 @@
 #pragma once
 
 #include <algorithm>
-#include <sycl/seeding/detail/doublet_counter.hpp>          // take out of cuda namespace? it's duplicate code for sycl and cuda right now
+#include <sycl/seeding/detail/doublet_counter.hpp>          //  it's duplicate code for sycl and cuda right now
 #include <cuda/seeding/detail/multiplet_estimator.hpp>      
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
@@ -99,9 +99,15 @@ struct seed_finding {
         // doublet counting
         traccc::sycl::doublet_counting(m_seedfinder_config, isp_container,
                                        doublet_counter_container, m_mr, m_q);
+
+        // doublet finding
+        traccc::cuda::doublet_finding(
+            m_seedfinder_config, isp_container, doublet_counter_container,
+            mid_bot_container, mid_top_container, m_mr, m_q);
         
 
     }
+// Add m_q in private members //// TODO ////
 };
 
 } // namespace sycl
