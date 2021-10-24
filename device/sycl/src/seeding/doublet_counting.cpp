@@ -78,6 +78,7 @@ public:
         unsigned int bin_idx = 0;
         unsigned int ref_block_idx = 0;
 
+        /////////////// TAken from CUDA helper function ///////////////////////
         // the item jagged vector of edm
         auto jag_vec = internal_sp_device.get_items();
 
@@ -98,7 +99,8 @@ public:
             }
             ref_block_idx += nblocks_per_header;
     }
-    
+    /////////////////// End of the helper funciton /////////////////////////   
+
     // Header of internal spacepoint container : spacepoint bin information
     // Item of internal spacepoint container : internal spacepoint objects per
     // bin

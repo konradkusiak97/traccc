@@ -10,6 +10,9 @@
 namespace traccc {
 namespace sycl {
 
+// Forward decleration of kernel class
+class doublet_find_kernel;
+
 void doublet_finding(const seedfinder_config& config,
                      host_internal_spacepoint_container& internal_sp_container,
                      host_doublet_counter_container& doublet_counter_container,
@@ -30,7 +33,223 @@ void doublet_finding(const seedfinder_config& config,
         // -- localRange
         // The dimension of workGroup (block) is the integer multiple of WARP_SIZE (=32)
         unsigned int localRange = 64;
+        // Calculate the global number of threads to run in kernel
+        unsigned int globalRange = 0;
+        for (size_t i = 0; i < internal_sp_view.headers.size(); ++i) {
+            globalRange += doublet_counter_container.get_headers()[i];
+        }
+        // Tweak the global range so that it is exactly how it is in cuda (make it multiple of the local range)
+        globalRange -= localRange * internal_sp_view.headers.size();
+
+        // 1 dim ND Range for the kernel
+        auto doubletCountingNdRange = cl::sycl::nd_range<1>{cl::sycl::range<1>{globalRange},
+                                                            cl::sycl::range<1>{localRange}};
+         q->submit([](cl::sycl::handler& h){
+             // local memory initialization (equivalent to shared memory in CUDA)
+            cl::sycl::local_accessor<int> localMem{localRange*2, h};
+            DupletFind kernel(config, internal_sp_view, doublet_counter_view, 
+                            mid_bot_doublet_view,mid_top_doublet_view,localMem);
+            h.parallel_for<class doublet_find_kernel>(doubletCountingNdRange, kernel);
+        });                                                            
 
     }
+class DupletFind {
+public:
+    DupletFind(const seedfinder_config config,
+                internal_spacepoint_container_view internal_sp_view,
+                doublet_counter_container_view doublet_counter_view,
+                doublet_container_view mid_bot_doublet_view,
+                doublet_container_view mid_top_doublet_view,
+                cl::sycl::local_accessor<int>* localMem)
+    : m_config(config),
+      m_internal_sp_view(internal_sp_view),
+      m_doublet_counter_view(doublet_counter_view),
+      m_mid_bot_doublet_view(mid_bot_doublet_view),
+      m_mid_top_doublet_view(mid_top_doublet_view),
+      m_localMem(localMem) {}
+
+    void operator()(cl::sycl::nd_item<1> item) {
+        
+        // Mapping cuda indexing to dpc++
+        auto workGroup = item.get_group();
+        
+        // Equivalent to blockIdx.x in cuda
+        auto groupIdx = workGroup.get_linear_id();
+        // Equivalent to blockDim.x in cuda
+        auto groupDim = workGroup.get_local_range(0);
+        // Equivalent to threadIdx.x in cuda
+        auto workItemIdx = item.get_local_linear_id();
+
+        device_internal_spacepoint_container internal_sp_device(
+        {m_internal_sp_view.headers, m_internal_sp_view.items});
+        device_doublet_counter_container doublet_counter_device(
+            {m_doublet_counter_view.headers, m_doublet_counter_view.items});
+
+        device_doublet_container mid_bot_doublet_device(
+            {m_mid_bot_doublet_view.headers, m_mid_bot_doublet_view.items});
+        device_doublet_container mid_top_doublet_device(
+            {m_mid_top_doublet_view.headers, m_mid_top_doublet_view.items});
+        
+        // Get the bin index of spacepoint binning and reference block idx for the
+        // bin index
+        unsigned int bin_idx = 0;
+        unsigned int ref_block_idx = 0;
+
+       /////////////// TAken from CUDA helper function ///////////////////////
+       /// number of blocks accumulated upto current header idx
+        unsigned int nblocks_accum = 0;
+
+        /// number of blocks for one header entry
+        unsigned int nblocks_per_header = 0;
+        for (unsigned int i = 0; i < doublet_counter_device.size(); ++i) {
+            nblocks_per_header = doublet_counter_device.get_headers()[i] / groupDim + 1;
+            nblocks_accum += nblocks_per_header;
+
+            if (groupIdx < nblocks_accum) {
+                header_idx = i;
+                break;
+            }
+            ref_block_idx += nblocks_per_header;
+        }
+        /////////////////// End of the helper funciton ////////////////////
+
+        // Header of internal spacepoint container : spacepoint bin information
+        // Item of internal spacepoint container : internal spacepoint objects per
+        // bin
+        const auto& bin_info = internal_sp_device.get_headers().at(bin_idx);
+        auto internal_sp_per_bin = internal_sp_device.get_items().at(bin_idx);
+
+        // Header of doublet counter : number of compatible middle sp per bin
+        // Item of doublet counter : doublet counter objects per bin
+        auto& num_compat_spM_per_bin =
+            doublet_counter_device.get_headers().at(bin_idx);
+        auto doublet_counter_per_bin =
+            doublet_counter_device.get_items().at(bin_idx);
+
+        // Header of doublet: number of mid_bot doublets per bin
+        // Item of doublet: doublet objects per bin
+        auto& num_mid_bot_doublets_per_bin =
+            mid_bot_doublet_device.get_headers().at(bin_idx);
+        auto mid_bot_doublets_per_bin =
+            mid_bot_doublet_device.get_items().at(bin_idx);
+
+        // Header of doublet: number of mid_top doublets per bin
+        // Item of doublet: doublet objects per bin
+        auto& num_mid_top_doublets_per_bin =
+            mid_top_doublet_device.get_headers().at(bin_idx);
+        auto mid_top_doublets_per_bin =
+            mid_top_doublet_device.get_items().at(bin_idx);        
+
+        auto num_mid_bot_doublets_per_thread = m_localMem;
+        auto num_mid_top_doublets_per_thread = &num_mid_bot_doublets_per_thread[groupDim];
+        num_mid_bot_doublets_per_thread[workItemIdx] = 0;
+        num_mid_top_doublets_per_thread[workItemIdx] = 0;
+
+        // Convenient alias for the number of doublets per thread
+        auto& n_mid_bot_per_spM = num_mid_bot_doublets_per_thread[workItemIdx];
+        auto& n_mid_top_per_spM = num_mid_top_doublets_per_thread[workItemIdx];
+
+        // index of doublet counter in the item vector
+        auto gid = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
+
+        if (gid < num_compat_spM_per_bin) {
+
+            // index of internal spacepoint in the item vector
+            auto sp_idx = doublet_counter_per_bin[gid].spM.sp_idx;
+            // middle spacepoint index
+            auto spM_loc = sp_location({bin_idx, sp_idx});
+            // middle spacepoint
+            auto& isp = internal_sp_per_bin[sp_idx];
+        }
+        // find the reference (start) index of the doublet container item vector,
+        // where the doublets are recorded The start index is calculated by
+        // accumulating the number of doublets of all previous compatible middle
+        // spacepoints
+        unsigned int mid_bot_start_idx = 0;
+        unsigned int mid_top_start_idx = 0;
+        for (unsigned int i = 0; i < gid; i++) {
+            mid_bot_start_idx += doublet_counter_per_bin[i].n_mid_bot;
+            mid_top_start_idx += doublet_counter_per_bin[i].n_mid_top;
+        }
+        // Loop over (bottom and top) internal spacepoints in tje neighbor bins
+        for (unsigned int i_n = 0; i_n < bin_info.bottom_idx.counts; ++i_n) {
+            const auto& neigh_bin = bin_info.bottom_idx.vector_indices[i_n];
+            const auto& neigh_internal_sp_per_bin =
+                internal_sp_device.get_items().at(neigh_bin);
+
+            for (unsigned int spB_idx = 0;
+                spB_idx < neigh_internal_sp_per_bin.size(); ++spB_idx) {
+                const auto& neigh_isp = neigh_internal_sp_per_bin[spB_idx];
+
+                // Check if middle and bottom sp can form a doublet
+                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                                                        true)) {
+                    auto spB_loc = sp_location({neigh_bin, spB_idx});
+
+                    // Check conditions
+                    // 1) number of mid-bot doublets per spM should be smaller than
+                    // what is counted in doublet_counting (so it should be true
+                    // always) 2) prevent overflow
+                    if (n_mid_bot_per_spM <
+                            doublet_counter_per_bin[gid].n_mid_bot &&
+                        num_mid_bot_doublets_per_bin <
+                            mid_bot_doublets_per_bin.size()) {
+                        unsigned int pos = mid_bot_start_idx + n_mid_bot_per_spM;
+
+                        // prevent overflow again
+                        if (pos >= mid_bot_doublets_per_bin.size()) {
+                            continue;
+                        }
+
+                        // write the doublet into the container
+                        mid_bot_doublets_per_bin[pos] = doublet({spM_loc, spB_loc});
+                        n_mid_bot_per_spM++;
+                    }
+                }
+
+                // Check if middle and top sp can form a doublet
+                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                                                        false)) {
+                    auto spT_loc = sp_location({neigh_bin, spB_idx});
+
+                    // Check conditions
+                    // 1) number of mid-top doublets per spM should be smaller than
+                    // what is counted in doublet_counting (so it should be true
+                    // always) 2) prevent overflow
+                    if (n_mid_top_per_spM <
+                            doublet_counter_per_bin[gid].n_mid_top &&
+                        num_mid_top_doublets_per_bin <
+                            mid_top_doublets_per_bin.size()) {
+                        unsigned int pos = mid_top_start_idx + n_mid_top_per_spM;
+
+                        // prevent overflow again
+                        if (pos >= mid_top_doublets_per_bin.size()) {
+                            continue;
+                        }
+
+                        // write the doublet into the container
+                        mid_top_doublets_per_bin[pos] = doublet({spM_loc, spT_loc});
+                        n_mid_top_per_spM++;
+                    }
+                }
+            }
+        }
+        // TODO - implement the reduction (try using the oneAPI reduction class)
+        // Calculate the number doublets per "block" with reducing sum technique
+        item.barrier();
+        cuda_helper::reduce_sum<int>(num_mid_bot_doublets_per_thread);
+        __syncthreads();
+        cuda_helper::reduce_sum<int>(num_mid_top_doublets_per_thread);
+
+    }
+private:
+    const seedfinder_config m_config;
+    internal_spacepoint_container_view m_internal_sp_view;
+    doublet_counter_container_view m_doublet_counter_view;
+    doublet_container_view m_mid_bot_doublet_view;
+    doublet_container_view mid_top_doublet_view;
+    cl::sycl::local_accessor<int>* m_localMem;
+
+}
 }
 }
