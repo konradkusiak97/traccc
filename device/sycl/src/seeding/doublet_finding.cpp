@@ -205,7 +205,7 @@ public:
                 const auto& neigh_isp = neigh_internal_sp_per_bin[spB_idx];
 
                 // Check if middle and bottom sp can form a doublet
-                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                if (doublet_finding_helper::isCompatible(isp, neigh_isp, m_config,
                                                         true)) {
                     auto spB_loc = sp_location({neigh_bin, spB_idx});
 
@@ -231,7 +231,7 @@ public:
                 }
 
                 // Check if middle and top sp can form a doublet
-                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                if (doublet_finding_helper::isCompatible(isp, neigh_isp, m_config,
                                                         false)) {
                     auto spT_loc = sp_location({neigh_bin, spB_idx});
 

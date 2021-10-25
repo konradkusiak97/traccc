@@ -151,13 +151,13 @@ public:
             const auto& neigh_isp = neigh_internal_sp_per_bin[spB_idx];
 
             // Check if middle and bottom sp can form a doublet
-            if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+            if (doublet_finding_helper::isCompatible(isp, neigh_isp, m_config,
                                                     true)) {
                 n_mid_bot++;
             }
 
             // Check if middle and top sp can form a doublet
-            if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+            if (doublet_finding_helper::isCompatible(isp, neigh_isp, m_config,
                                                     false)) {
                 n_mid_top++;
             }
