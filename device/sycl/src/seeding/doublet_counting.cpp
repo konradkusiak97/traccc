@@ -162,13 +162,13 @@ public:
             vecmem::atomic atomicAdd(&num_compat_spM_per_bin);
             auto pos = atomicAdd.fetch_add(1);
             doublet_counter_per_bin[pos] = {spM_loc, n_mid_bot, n_mid_top};
-    }        
+        }        
     }
 }
 private: 
     const seedfinder_config m_config;
     internal_spacepoint_container_view m_internal_sp_view;
     doublet_counter_container_view m_doublet_counter_view;
-
+}
 } // namespace sycl
 } // namespace traccc
