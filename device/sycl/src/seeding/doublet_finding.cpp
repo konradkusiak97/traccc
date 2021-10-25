@@ -237,11 +237,18 @@ public:
         // TODO - implement the reduction (try using the oneAPI reduction class)
         // Calculate the number doublets per "block" with reducing sum technique
         item.barrier();
-        cuda_helper::reduce_sum<int>(num_mid_bot_doublets_per_thread);
-        __syncthreads();
-        cuda_helper::reduce_sum<int>(num_mid_top_doublets_per_thread);
+        auto bottom_result = sycl::reduce(workGroup, num_mid_bot_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
+        item.barrier();
+        auto top_result = sycl::reduce(workGroup, num_mid_top_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
 
-    }
+        // Calculate the number doublets per bin by atomic-adding the number of
+        // doublets per block
+        if (workItemIdx == 0) {
+            vecmem::atomic atomicAddBot(&num_mid_bot_doublets_per_bin);
+            atomicAddBot.fetch_add(bottom_result);
+            vecmem::atomic atomicAddTop(&num_mid_top_doublets_per_bin);
+            atomicAddTop.fetch_add(top_result);
+        }
 private:
     const seedfinder_config m_config;
     internal_spacepoint_container_view m_internal_sp_view;
