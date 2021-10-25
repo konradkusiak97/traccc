@@ -104,8 +104,13 @@ struct seed_finding {
         traccc::cuda::doublet_finding(
             m_seedfinder_config, isp_container, doublet_counter_container,
             mid_bot_container, mid_top_container, m_mr, m_q);
-        
 
+        // triplet counting
+        traccc::cuda::triplet_counting(m_seedfinder_config, isp_container,
+                                       doublet_counter_container,
+                                       mid_bot_container, mid_top_container,
+                                       triplet_counter_container, m_mr, m_q);        
+        
     }
 // Add m_q in private members //// TODO ////
 };

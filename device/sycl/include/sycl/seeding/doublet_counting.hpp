@@ -34,7 +34,7 @@ void doublet_counting(const seedfinder_config& config,
                       host_internal_spacepoint_container& internal_sp_container,
                       host_doublet_counter_container& doublet_counter_container,
                       vecmem::memory_resource* resource,
-                      cl::sycl::queue* q);
+                      sycl::queue* q);
 
 } // namespace sycl
 } // namespace traccc

@@ -13,13 +13,29 @@ namespace sycl {
 // Forward decleration of kernel class
 class doublet_find_kernel;
 
+// Define shorthand alias for the type of atomics needed by this kernel 
+template <typename T>
+using global_atomic_ref = sycl::atomic_ref<
+    T,
+    sycl::memory_order::relaxed,
+    sycl::memory_scope::system,
+    sycl::access::address_space::global_space>;
+    
+// Short aliast for accessor to local memory (shared memory in CUDA)
+template <typename T>
+using local_accessor = sycl::accessor<
+    T,
+    1,
+    sycl::access::mode::read_write,
+    sycl::access::target::local>;
+
 void doublet_finding(const seedfinder_config& config,
                      host_internal_spacepoint_container& internal_sp_container,
                      host_doublet_counter_container& doublet_counter_container,
                      host_doublet_container& mid_bot_doublet_container,
                      host_doublet_container& mid_top_doublet_container,
                      vecmem::memory_resource* resource,
-                     cl::sycl::queue* q) {
+                     sycl::queue* q) {
 
         auto internal_sp_view = get_data(internal_sp_container, resource);
         auto doublet_counter_view = get_data(doublet_counter_container, resource);
@@ -42,14 +58,18 @@ void doublet_finding(const seedfinder_config& config,
         globalRange -= localRange * internal_sp_view.headers.size();
 
         // 1 dim ND Range for the kernel
-        auto doubletCountingNdRange = cl::sycl::nd_range<1>{cl::sycl::range<1>{globalRange},
-                                                            cl::sycl::range<1>{localRange}};
-         q->submit([](cl::sycl::handler& h){
-             // local memory initialization (equivalent to shared memory in CUDA)
-            cl::sycl::local_accessor<int> localMem{localRange*2, h};
+        auto doubletFindNdRange = sycl::nd_range<1>{sycl::range<1>{globalRange},
+                                                            sycl::range<1>{localRange}};
+         q->submit([](sycl::handler& h) {
+
+            // local memory initialization (equivalent to shared memory in CUDA)
+            auto localMem = 
+                local_accessor<int>(localRange*2, h);
+            
             DupletFind kernel(config, internal_sp_view, doublet_counter_view, 
                             mid_bot_doublet_view,mid_top_doublet_view,localMem);
-            h.parallel_for<class doublet_find_kernel>(doubletCountingNdRange, kernel);
+
+            h.parallel_for<class doublet_find_kernel>(doubletFindNdRange, kernel);
         });                                                            
 
     }
@@ -60,7 +80,7 @@ public:
                 doublet_counter_container_view doublet_counter_view,
                 doublet_container_view mid_bot_doublet_view,
                 doublet_container_view mid_top_doublet_view,
-                cl::sycl::local_accessor<int>* localMem)
+                local_accessor<int>* localMem)
     : m_config(config),
       m_internal_sp_view(internal_sp_view),
       m_doublet_counter_view(doublet_counter_view),
@@ -68,7 +88,7 @@ public:
       m_mid_top_doublet_view(mid_top_doublet_view),
       m_localMem(localMem) {}
 
-    void operator()(cl::sycl::nd_item<1> item) {
+    void operator()(sycl::nd_item<1> item) {
         
         // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();
@@ -151,16 +171,17 @@ public:
 
         // index of doublet counter in the item vector
         auto gid = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
+    
+        // prevent the tail threads referring the null doublet counter
+        if (gid >= num_compat_spM_per_bin) return;
 
-        if (gid < num_compat_spM_per_bin) {
+        // index of internal spacepoint in the item vector
+        auto sp_idx = doublet_counter_per_bin[gid].spM.sp_idx;
+        // middle spacepoint index
+        auto spM_loc = sp_location({bin_idx, sp_idx});
+        // middle spacepoint
+        auto& isp = internal_sp_per_bin[sp_idx];
 
-            // index of internal spacepoint in the item vector
-            auto sp_idx = doublet_counter_per_bin[gid].spM.sp_idx;
-            // middle spacepoint index
-            auto spM_loc = sp_location({bin_idx, sp_idx});
-            // middle spacepoint
-            auto& isp = internal_sp_per_bin[sp_idx];
-        }
         // find the reference (start) index of the doublet container item vector,
         // where the doublets are recorded The start index is calculated by
         // accumulating the number of doublets of all previous compatible middle
@@ -236,17 +257,14 @@ public:
         }
         // Calculate the number doublets per "block" with reducing sum technique
         item.barrier();
-        auto bottom_result = sycl::reduce(workGroup, num_mid_bot_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
-        item.barrier();
-        auto top_result = sycl::reduce(workGroup, num_mid_top_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
+        auto bottom_result = sycl::ONEAPI::reduce(workGroup, num_mid_bot_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
+        auto top_result = sycl::ONEAPI::reduce(workGroup, num_mid_top_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
 
         // Calculate the number doublets per bin by atomic-adding the number of
         // doublets per block
         if (workItemIdx == 0) {
-            vecmem::atomic atomicAddBot(&num_mid_bot_doublets_per_bin);
-            atomicAddBot.fetch_add(bottom_result);
-            vecmem::atomic atomicAddTop(&num_mid_top_doublets_per_bin);
-            atomicAddTop.fetch_add(top_result);
+            global_atomic_ref<int> (num_mid_bot_doublets_per_bin) += bottom_result;
+            global_atomic_ref<int> (num_mid_top_doublets_per_bin) += top_result;
         }
     }
 private:
@@ -255,7 +273,7 @@ private:
     doublet_counter_container_view m_doublet_counter_view;
     doublet_container_view m_mid_bot_doublet_view;
     doublet_container_view mid_top_doublet_view;
-    cl::sycl::local_accessor<int>* m_localMem;
+    local_accessor<int>* m_localMem;
 }
 
 } // namespace sycl
