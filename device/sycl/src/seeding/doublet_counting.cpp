@@ -13,11 +13,19 @@ namespace sycl {
 // Forward decleration of kernel class
 class doublet_count_kernel;
 
+// Define shorthand alias for the type of atomics needed by this kernel 
+template <typename T>
+using global_atomic_ref = sycl::atomic_ref<
+    T,
+    sycl::memory_order::relaxed,
+    sycl::memory_scope::system,
+    sycl::access::address_space::global_space>;
+
 void doublet_counting(const seedfinder_config& config,
                       host_internal_spacepoint_container& internal_sp_container,
                       host_doublet_counter_container& doublet_counter_container,
                       vecmem::memory_resource* resource,
-                      cl::sycl::queue* q) {
+                      sycl::queue* q) {
 
     auto internal_sp_view = get_data(internal_sp_container, resource);
     auto doublet_counter_container_view =
@@ -34,10 +42,10 @@ void doublet_counting(const seedfinder_config& config,
     globalRange -= localRange * internal_sp_view.headers.size();
 
     // 1 dim ND Range for the kernel
-    auto doubletCountingNdRange = cl::sycl::nd_range<1>{cl::sycl::range<1>{globalRange},
-                                                        cl::sycl::range<1>{localRange}};
+    auto doubletCountingNdRange = sycl::nd_range<1>{sycl::range<1>{globalRange},
+                                                        sycl::range<1>{localRange}};
     
-    q->submit([](cl::sycl::handler& h){
+    q->submit([](sycl::handler& h){
         DupletCount kernel( config, internal_sp_view, 
                             doublet_counter_container_view);
         h.parallel_for<class doublet_count_kernel>(doubletCountingNdRange, kernel);
@@ -55,7 +63,7 @@ public:
       m_internal_sp_view(internal_sp_view),
       m_doublet_counter_view(doublet_counter_view) {} 
 
-    void operator()(cl::sycl::nd_item<1> item) {
+    void operator()(sycl::nd_item<1> item) {
         
         // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();
@@ -98,8 +106,8 @@ public:
                 break;
             }
             ref_block_idx += nblocks_per_header;
-    }
-    /////////////////// End of the helper funciton /////////////////////////   
+        }
+        /////////////////// End of the helper funciton /////////////////////////   
 
     // Header of internal spacepoint container : spacepoint bin information
     // Item of internal spacepoint container : internal spacepoint objects per
@@ -117,53 +125,51 @@ public:
     // index of internal spacepoint in the item vector
     auto sp_idx = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
 
-    if (sp_idx < doublet_counter_per_bin.size()) {
+    if (sp_idx >= doublet_counter_per_bin.size()) return;
 
-        // zero initialization for the number of doublets per thread (or middle sp)
-        unsigned int n_mid_bot = 0;
-        unsigned int n_mid_top = 0;
+    // zero initialization for the number of doublets per thread (or middle sp)
+    unsigned int n_mid_bot = 0;
+    unsigned int n_mid_top = 0;
 
-        // zero initialization for the number of doublets per bin
-        doublet_counter_per_bin[sp_idx].n_mid_bot = 0;
-        doublet_counter_per_bin[sp_idx].n_mid_top = 0;
+    // zero initialization for the number of doublets per bin
+    doublet_counter_per_bin[sp_idx].n_mid_bot = 0;
+    doublet_counter_per_bin[sp_idx].n_mid_top = 0;
 
-        // middle spacepoint index
-        auto spM_loc = sp_location({bin_idx, sp_idx});
-        // middle spacepoint
-        const auto& isp = internal_sp_per_bin[sp_idx];
+    // middle spacepoint index
+    auto spM_loc = sp_location({bin_idx, sp_idx});
+    // middle spacepoint
+    const auto& isp = internal_sp_per_bin[sp_idx];
 
-        // Loop over (bottom and top) internal spacepoints in the neighbor bins
-        for (size_t i_n = 0; i_n < bin_info.bottom_idx.counts; ++i_n) {
-            const auto& neigh_bin = bin_info.bottom_idx.vector_indices[i_n];
-            const auto& neigh_internal_sp_per_bin =
-                internal_sp_device.get_items().at(neigh_bin);
+    // Loop over (bottom and top) internal spacepoints in the neighbor bins
+    for (size_t i_n = 0; i_n < bin_info.bottom_idx.counts; ++i_n) {
+        const auto& neigh_bin = bin_info.bottom_idx.vector_indices[i_n];
+        const auto& neigh_internal_sp_per_bin =
+            internal_sp_device.get_items().at(neigh_bin);
 
-            for (size_t spB_idx = 0; spB_idx < neigh_internal_sp_per_bin.size();
-                ++spB_idx) {
-                const auto& neigh_isp = neigh_internal_sp_per_bin[spB_idx];
+        for (size_t spB_idx = 0; spB_idx < neigh_internal_sp_per_bin.size();
+            ++spB_idx) {
+            const auto& neigh_isp = neigh_internal_sp_per_bin[spB_idx];
 
-                // Check if middle and bottom sp can form a doublet
-                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
-                                                        true)) {
-                    n_mid_bot++;
-                }
+            // Check if middle and bottom sp can form a doublet
+            if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                                                    true)) {
+                n_mid_bot++;
+            }
 
-                // Check if middle and top sp can form a doublet
-                if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
-                                                        false)) {
-                    n_mid_top++;
-                }
+            // Check if middle and top sp can form a doublet
+            if (doublet_finding_helper::isCompatible(isp, neigh_isp, config,
+                                                    false)) {
+                n_mid_top++;
             }
         }
-        // if number of mid-bot and mid-top doublet for a middle spacepoint is
-        // larger than 0, the entry is added to the doublet counter
-        if (n_mid_bot > 0 && n_mid_top > 0) {
-            // TODO - not sure if the following is correct
-            vecmem::atomic atomicAdd(&num_compat_spM_per_bin);
-            auto pos = atomicAdd.fetch_add(1);
-            doublet_counter_per_bin[pos] = {spM_loc, n_mid_bot, n_mid_top};
-        }        
     }
+    // if number of mid-bot and mid-top doublet for a middle spacepoint is
+    // larger than 0, the entry is added to the doublet counter
+    if (n_mid_bot > 0 && n_mid_top > 0) {
+        auto pos = global_atomic_ref<int>(num_compat_spM_per_bin);
+        pos += 1;
+        doublet_counter_per_bin[pos] = {spM_loc, n_mid_bot, n_mid_top};
+    }        
 }
 private: 
     const seedfinder_config m_config;
