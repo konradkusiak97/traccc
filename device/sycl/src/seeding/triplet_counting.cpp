@@ -59,10 +59,11 @@ void triplet_counting(const seedfinder_config& config,
         TripletCount kernel(config, internal_sp_view, doublet_counter_container_view,
                             mid_bot_doublet_view, mid_top_doublet_view,
                             triplet_counter_container_view);
-        h.parallel_for<class triplet_count_kernel>(tripletCountRange, kernel);
+        h.parallel_for<class triplet_count_kernel>(tripletCountNdRange, kernel);
     });                                                      
 }
 
+// Kernel class for triplet counting
 class TripletCount {
 public:
     TripletCount(const seedfinder_config config,
@@ -72,6 +73,7 @@ public:
                 doublet_container_view mid_top_doublet_view,
                 triplet_counter_container_view triplet_counter_view) 
     : m_config(config),
+      m_internal_sp_view(internal_sp_view);
       m_doublet_counter_view(doublet_counter_view),
       m_mid_bot_doublet_view(mid_bot_doublet_view),
       m_mid_top_doublet_view(mid_top_doublet_view),
@@ -238,9 +240,10 @@ public:
         }
                 
     }
-
+private:
+const seedfinder_config m_config;
+internal_spacepoint_container_view m_internal_sp_view;
 }
-
 
 } // namespace sycl
 } // namespace traccc
