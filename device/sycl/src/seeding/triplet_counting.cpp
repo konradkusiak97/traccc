@@ -73,7 +73,7 @@ public:
                 doublet_container_view mid_top_doublet_view,
                 triplet_counter_container_view triplet_counter_view) 
     : m_config(config),
-      m_internal_sp_view(internal_sp_view);
+      m_internal_sp_view(internal_sp_view),
       m_doublet_counter_view(doublet_counter_view),
       m_mid_bot_doublet_view(mid_bot_doublet_view),
       m_mid_top_doublet_view(mid_top_doublet_view),
@@ -92,15 +92,15 @@ public:
         auto workItemIdx = item.get_local_linear_id();
 
         device_internal_spacepoint_container internal_sp_device(
-            {internal_sp_view.headers, internal_sp_view.items});
+            {m_internal_sp_view.headers, m_internal_sp_view.items});
         device_doublet_counter_container doublet_counter_device(
-            {doublet_counter_view.headers, doublet_counter_view.items});
+            {m_doublet_counter_view.headers, m_doublet_counter_view.items});
         device_doublet_container mid_bot_doublet_device(
-            {mid_bot_doublet_view.headers, mid_bot_doublet_view.items});
+            {m_mid_bot_doublet_view.headers, m_mid_bot_doublet_view.items});
         device_doublet_container mid_top_doublet_device(
-            {mid_top_doublet_view.headers, mid_top_doublet_view.items});
+            {m_mid_top_doublet_view.headers, m_mid_top_doublet_view.items});
         device_triplet_counter_container triplet_counter_device(
-            {triplet_counter_view.headers, triplet_counter_view.items});
+            {m_triplet_counter_view.headers, m_triplet_counter_view.items});
     
         // Get the bin index of spacepoint binning and reference block idx for the
         // bin index
@@ -183,8 +183,8 @@ public:
         // Calculate some physical quantities required for triplet compatibility
         // check
         scalar iSinTheta2 = 1 + lb.cotTheta() * lb.cotTheta();
-        scalar scatteringInRegion2 = config.maxScatteringAngle2 * iSinTheta2;
-        scatteringInRegion2 *= config.sigmaScattering * config.sigmaScattering;
+        scalar scatteringInRegion2 = m_config.maxScatteringAngle2 * iSinTheta2;
+        scatteringInRegion2 *= m_config.sigmaScattering * m_config.sigmaScattering;
         scalar curvature, impact_parameter;
         
         // find the reference (start) index of the mid-top doublet container item
@@ -226,7 +226,7 @@ public:
 
             // Check if mid-bot and mid-top doublets can form a triplet
             if (triplet_finding_helper::isCompatible(
-                    spM, lb, lt, config, iSinTheta2, scatteringInRegion2, curvature,
+                    spM, lb, lt, m_config, iSinTheta2, scatteringInRegion2, curvature,
                     impact_parameter)) {
                 num_triplets_per_mb++;
             }
@@ -243,6 +243,10 @@ public:
 private:
 const seedfinder_config m_config;
 internal_spacepoint_container_view m_internal_sp_view;
+doublet_counter_container_view m_doublet_counter_view;
+doublet_container_view m_mid_bot_doublet_view;
+doublet_container_view m_mid_top_doublet_view;
+triplet_counter_container_view m_triplet_counter_view;
 }
 
 } // namespace sycl
