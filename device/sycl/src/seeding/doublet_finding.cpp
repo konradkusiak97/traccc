@@ -234,7 +234,6 @@ public:
                 }
             }
         }
-        // TODO - implement the reduction (try using the oneAPI reduction class)
         // Calculate the number doublets per "block" with reducing sum technique
         item.barrier();
         auto bottom_result = sycl::reduce(workGroup, num_mid_bot_doublets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
@@ -249,6 +248,7 @@ public:
             vecmem::atomic atomicAddTop(&num_mid_top_doublets_per_bin);
             atomicAddTop.fetch_add(top_result);
         }
+    }
 private:
     const seedfinder_config m_config;
     internal_spacepoint_container_view m_internal_sp_view;
@@ -256,7 +256,7 @@ private:
     doublet_container_view m_mid_bot_doublet_view;
     doublet_container_view mid_top_doublet_view;
     cl::sycl::local_accessor<int>* m_localMem;
+}
 
-}
-}
-}
+} // namespace sycl
+} // namespace traccc
