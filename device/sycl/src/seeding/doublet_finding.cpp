@@ -20,7 +20,7 @@ using global_atomic_ref = sycl::atomic_ref<
     sycl::memory_order::relaxed,
     sycl::memory_scope::system,
     sycl::access::address_space::global_space>;
-    
+
 // Short aliast for accessor to local memory (shared memory in CUDA)
 template <typename T>
 using local_accessor = sycl::accessor<
@@ -73,6 +73,8 @@ void doublet_finding(const seedfinder_config& config,
         });                                                            
 
     }
+
+// kernel class for doublet finding
 class DupletFind {
 public:
     DupletFind(const seedfinder_config config,
@@ -272,7 +274,7 @@ private:
     internal_spacepoint_container_view m_internal_sp_view;
     doublet_counter_container_view m_doublet_counter_view;
     doublet_container_view m_mid_bot_doublet_view;
-    doublet_container_view mid_top_doublet_view;
+    doublet_container_view m_mid_top_doublet_view;
     local_accessor<int>* m_localMem;
 }
 
