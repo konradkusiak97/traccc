@@ -18,8 +18,11 @@
 #include <seeding/seed_filtering.hpp>
 
 // kernel includes
-#include <sycl/seeding/doublet_counting.hpp>                
-
+#include <sycl/seeding/doublet_counting.hpp>
+#include <sycl/seeding/doublet_finding.hpp>
+#include <sycl/seeding/triplet_counting.hpp>
+#include <sycl/seeding/triplet_finding.hpp>
+#include <sycl/seeding/weight_updating.hpp>                
 
 namespace traccc {
 namespace sycl {
@@ -34,10 +37,12 @@ struct seed_finding {
     /// @param mr vecmem memory resource
     seed_finding(seedfinder_config& config,
                  std::shared_ptr<spacepoint_grid> sp_grid,
-                 multiplet_estimator& estimator, vecmem::memory_resource* mr)
+                 multiplet_estimator& estimator, vecmem::memory_resource* mr,
+                 sycl::queue* q)
         : m_seedfinder_config(config),
           m_estimator(estimator),
           m_mr(mr),
+          m_q(q),
           // initialize all vecmem containers:
           // the size of header and item vector = the number of spacepoint bins
           doublet_counter_container(sp_grid->size(false), mr),
@@ -120,10 +125,32 @@ struct seed_finding {
         // weight updating
         traccc::cuda::weight_updating(m_seedfilter_config, isp_container,
                                       triplet_counter_container,
-                                      triplet_container, m_mr, m_q);      
+                                      triplet_container, m_mr, m_q);    
+
+        // seed selecting
+        traccc::cuda::seed_selecting(
+            m_seedfilter_config, isp_container, doublet_counter_container,
+            triplet_counter_container, triplet_container, seed_container, m_mr, m_q);
+
+        return seed_container;  
         
     }
 // Add m_q in private members //// TODO ////
+private:
+    bool first_alloc;
+    const seedfinder_config m_seedfinder_config;
+    const seedfilter_config m_seedfilter_config;
+    multiplet_estimator m_estimator;
+    seed_filtering m_seed_filtering;
+
+    host_doublet_counter_container doublet_counter_container;
+    host_doublet_container mid_bot_container;
+    host_doublet_container mid_top_container;
+    host_triplet_counter_container triplet_counter_container;
+    host_triplet_container triplet_container;
+    host_seed_container seed_container;
+    vecmem::memory_resource* m_mr;
+    sycl::queue* m_q;
 };
 
 } // namespace sycl
