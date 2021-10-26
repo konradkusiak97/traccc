@@ -82,7 +82,7 @@ public:
                 doublet_counter_container_view doublet_counter_view,
                 doublet_container_view mid_bot_doublet_view,
                 doublet_container_view mid_top_doublet_view,
-                local_accessor<int>* localMem)
+                local_accessor<int> localMem)
     : m_config(config),
       m_internal_sp_view(internal_sp_view),
       m_doublet_counter_view(doublet_counter_view),
@@ -275,8 +275,8 @@ private:
     doublet_counter_container_view m_doublet_counter_view;
     doublet_container_view m_mid_bot_doublet_view;
     doublet_container_view m_mid_top_doublet_view;
-    local_accessor<int>* m_localMem;
-}
+    local_accessor<int> m_localMem;
+};
 
 } // namespace sycl
 } // namespace traccc

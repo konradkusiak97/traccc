@@ -241,13 +241,13 @@ public:
                 
     }
 private:
-const seedfinder_config m_config;
-internal_spacepoint_container_view m_internal_sp_view;
-doublet_counter_container_view m_doublet_counter_view;
-doublet_container_view m_mid_bot_doublet_view;
-doublet_container_view m_mid_top_doublet_view;
-triplet_counter_container_view m_triplet_counter_view;
-}
+    const seedfinder_config m_config;
+    internal_spacepoint_container_view m_internal_sp_view;
+    doublet_counter_container_view m_doublet_counter_view;
+    doublet_container_view m_mid_bot_doublet_view;
+    doublet_container_view m_mid_top_doublet_view;
+    triplet_counter_container_view m_triplet_counter_view;
+};
 
 } // namespace sycl
 } // namespace traccc
