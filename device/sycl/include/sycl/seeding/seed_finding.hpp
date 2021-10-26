@@ -22,7 +22,8 @@
 #include <sycl/seeding/doublet_finding.hpp>
 #include <sycl/seeding/triplet_counting.hpp>
 #include <sycl/seeding/triplet_finding.hpp>
-#include <sycl/seeding/weight_updating.hpp>                
+#include <sycl/seeding/weight_updating.hpp> 
+#include <sycl/seeding/seed_selecting.hpp>               
 
 namespace traccc {
 namespace sycl {
@@ -135,7 +136,6 @@ struct seed_finding {
         return seed_container;  
         
     }
-// Add m_q in private members //// TODO ////
 private:
     bool first_alloc;
     const seedfinder_config m_seedfinder_config;
