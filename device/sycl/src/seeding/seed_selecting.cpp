@@ -11,7 +11,7 @@
 #include <thrust/sort.h>
 
 #include <algorithm>
-#include <sycl/seeding/seed_selecting.hpp>
+#include "seeding/seed_selecting.hpp"
 
 namespace traccc {
 namespace sycl {

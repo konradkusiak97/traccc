@@ -8,8 +8,8 @@
 #pragma once
 
 #include <algorithm>
-#include <sycl/seeding/detail/doublet_counter.hpp>          //  it's duplicate code for sycl and cuda right now
-#include <cuda/seeding/detail/multiplet_estimator.hpp>      
+#include "seeding/detail/doublet_counter.hpp"          //  it's duplicate code for sycl and cuda right now
+#include "seeding/detail/multiplet_estimator.hpp"      
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <iostream>
@@ -18,12 +18,12 @@
 #include <seeding/seed_filtering.hpp>
 
 // kernel includes
-#include <sycl/seeding/doublet_counting.hpp>
-#include <sycl/seeding/doublet_finding.hpp>
-#include <sycl/seeding/triplet_counting.hpp>
-#include <sycl/seeding/triplet_finding.hpp>
-#include <sycl/seeding/weight_updating.hpp> 
-#include <sycl/seeding/seed_selecting.hpp>               
+#include "seeding/doublet_counting.hpp"
+#include "seeding/doublet_finding.hpp"
+#include "seeding/triplet_counting.hpp"
+#include "seeding/triplet_finding.hpp"
+#include "seeding/weight_updating.hpp"
+#include "seeding/seed_selecting.hpp"           
 
 namespace traccc {
 namespace sycl {

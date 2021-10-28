@@ -5,8 +5,8 @@
  * Mozilla Public License Version 2.0
  */
 
-#include <sycl/seeding/detail/doublet_counter.hpp>
-#include <sycl/seeding/detail/triplet_counter.hpp>
+#include "seeding/detail/doublet_counter.hpp"
+#include "seeding/detail/triplet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <seeding/detail/doublet.hpp>

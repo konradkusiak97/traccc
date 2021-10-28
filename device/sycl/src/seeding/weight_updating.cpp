@@ -5,7 +5,7 @@
  * Mozilla Public License Version 2.0
  */
 
-#include <sycl/seeding/weight_updating.hpp>
+#include "seeding/weight_updating.hpp"
 
 namespace traccc {
 namespace sycl {

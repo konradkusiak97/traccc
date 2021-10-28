@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <sycl/seeding/detail/triplet_counter.hpp>
+#include "seeding/detail/triplet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/detail/triplet.hpp>
