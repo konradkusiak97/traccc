@@ -22,7 +22,7 @@ class seeding_algorithm {
     using output_type =
         std::pair<host_internal_spacepoint_container, host_seed_container>;
 
-    seeding_algorithm(vecmem::memory_resource* mr = nullptr, sycl::queue* q = nullptr) : m_mr(mr), m_q(q) {
+    seeding_algorithm(vecmem::memory_resource* mr = nullptr, ::sycl::queue* q = nullptr) : m_mr(mr), m_q(q) {
 
         m_config.highland = 13.6 * std::sqrt(m_config.radLengthPerSeed) *
                             (1 + 0.038 * std::log(m_config.radLengthPerSeed));
@@ -87,7 +87,7 @@ class seeding_algorithm {
     std::shared_ptr<traccc::spacepoint_grouping> sg;
     std::shared_ptr<traccc::sycl::seed_finding> sf;
     vecmem::memory_resource* m_mr;
-    sycl::queue* m_q;
+    ::sycl::queue* m_q;
 };
 
 }  // namespace sycl

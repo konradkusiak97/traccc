@@ -15,19 +15,19 @@ class triplet_find_kernel;
 
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
-using global_atomic_ref = sycl::atomic_ref<
+using global_atomic_ref = ::sycl::atomic_ref<
     T,
-    sycl::memory_order::relaxed,
-    sycl::memory_scope::system,
-    sycl::access::address_space::global_space>;
+    ::sycl::memory_order::relaxed,
+    ::sycl::memory_scope::system,
+    ::sycl::access::address_space::global_space>;
 
 // Short aliast for accessor to local memory (shared memory in CUDA)
 template <typename T>
-using local_accessor = sycl::accessor<
+using local_accessor = ::sycl::accessor<
     T,
     1,
-    sycl::access::mode::read_write,
-    sycl::access::target::local>;
+    ::sycl::access::mode::read_write,
+    ::sycl::access::target::local>;
 
 void triplet_finding(const seedfinder_config& config,
                      const seedfilter_config& filter_config,
@@ -38,7 +38,7 @@ void triplet_finding(const seedfinder_config& config,
                      host_triplet_counter_container& triplet_counter_container,
                      host_triplet_container& triplet_container,
                      vecmem::memory_resource* resource,
-                     sycl::queue* q) {                      
+                     ::sycl::queue* q) {                      
     auto internal_sp_view = get_data(internal_sp_container, resource);
     auto doublet_counter_view = get_data(doublet_counter_container, resource);
     auto mid_bot_doublet_view = get_data(mid_bot_doublet_container, resource);
@@ -61,9 +61,9 @@ void triplet_finding(const seedfinder_config& config,
     globalRange -= localRange * internal_sp_view.headers.size();
 
     // 1 dim ND Range for the kernel
-    auto tripletFindNdRange = sycl::nd_range<1>{sycl::range<1>{globalRange},
-                                                sycl::range<1>{localRange}};
-    q->submit([](sycl::handler& h){
+    auto tripletFindNdRange = ::sycl::nd_range<1>{::sycl::range<1>{globalRange},
+                                                ::sycl::range<1>{localRange}};
+    q->submit([](::sycl::handler& h){
 
         // local memory initialization (equivalent to shared memory in CUDA)
         auto localMem = 
@@ -97,7 +97,7 @@ public:
       m_triplet_view(triplet_view),
       m_localMem(localMem) {}
 
-    void operator()(sycl::nd_item<1> item) {
+    void operator()(::sycl::nd_item<1> item) {
 
          // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();
@@ -305,7 +305,7 @@ public:
         
         // Calculate the number of triplets per "block" with reducing sum technique
         item.barrier();
-        auto triplets_result = sycl::ONEAPI::reduce(workGroup, num_triplets_per_thread[workItemIdx], sycl::ONEAPI::plus<>());
+        auto triplets_result = ::sycl::ONEAPI::reduce(workGroup, num_triplets_per_thread[workItemIdx], ::sycl::ONEAPI::plus<>());
 
         // Calculate the number of triplets per bin by atomic-adding the number of
         // triplets per block
