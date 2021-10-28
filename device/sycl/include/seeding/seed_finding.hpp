@@ -39,7 +39,7 @@ struct seed_finding {
     seed_finding(seedfinder_config& config,
                  std::shared_ptr<spacepoint_grid> sp_grid,
                  multiplet_estimator& estimator, vecmem::memory_resource* mr,
-                 sycl::queue* q)
+                 ::sycl::queue* q)
         : m_seedfinder_config(config),
           m_estimator(estimator),
           m_mr(mr),
@@ -150,7 +150,7 @@ private:
     host_triplet_container triplet_container;
     host_seed_container seed_container;
     vecmem::memory_resource* m_mr;
-    sycl::queue* m_q;
+    ::sycl::queue* m_q;
 };
 
 } // namespace sycl
