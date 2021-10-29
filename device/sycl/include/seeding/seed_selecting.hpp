@@ -42,6 +42,28 @@ void seed_selecting(const seedfilter_config& filter_config,
                     vecmem::memory_resource* resource,
                     ::sycl::queue* q);
 
+// Thrust comparator function for triplet weight (in descending order)
+struct triplet_weight_descending
+    : public thrust::binary_function<triplet, triplet, bool> {
+        bool operator()(const triplet& lhs, const triplet& rhs) const {
+        if (lhs.weight != rhs.weight) {
+            return lhs.weight > rhs.weight;
+        } else {
+            return fabs(lhs.z_vertex) < fabs(rhs.z_vertex);
+        }
+    }
+};
+
+// comparator function for triplet weight (in ascending order)
+static bool triplet_weight_compare(const triplet& lhs,
+                                              const triplet& rhs) {
+    if (lhs.weight != rhs.weight) {
+        return lhs.weight < rhs.weight;
+    } else {
+        return fabs(lhs.z_vertex) > fabs(rhs.z_vertex);
+    }
+}
+
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
 using global_atomic_ref = ::sycl::ONEAPI::atomic_ref<
@@ -147,7 +169,7 @@ public:
         auto& num_seeds = seed_device.get_headers().at(0);
         auto seeds = seed_device.get_items().at(0);
 
-        auto triplets_per_spM = m_localMem;
+        auto triplets_per_spM = m_localMem.get_pointer();
 
         // index of doublet counter in the item vector
         auto gid = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
@@ -258,7 +280,7 @@ public:
             if (seed_selecting_helper::cut_per_middle_sp(
                     m_filter_config, spM.sp(), spB.sp(), spT.sp(), aTriplet.weight) ||
                 n_seeds_per_spM == 0) {
-                auto pos = global_atomic_ref<int>(num_seeds);
+                auto pos = global_atomic_ref<int>(& num_seeds);
                 pos += 1;
 
                 // prevent overflow
