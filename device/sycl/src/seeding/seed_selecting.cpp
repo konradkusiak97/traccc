@@ -16,28 +16,6 @@
 namespace traccc {
 namespace sycl {
 
-// Thrust comparator function for triplet weight (in descending order)
-struct triplet_weight_descending
-    : public thrust::binary_function<triplet, triplet, bool> {
-        bool operator()(const triplet& lhs, const triplet& rhs) const {
-        if (lhs.weight != rhs.weight) {
-            return lhs.weight > rhs.weight;
-        } else {
-            return fabs(lhs.z_vertex) < fabs(rhs.z_vertex);
-        }
-    }
-};
-
-// comparator function for triplet weight (in ascending order)
-static bool triplet_weight_compare(const triplet& lhs,
-                                              const triplet& rhs) {
-    if (lhs.weight != rhs.weight) {
-        return lhs.weight < rhs.weight;
-    } else {
-        return fabs(lhs.z_vertex) > fabs(rhs.z_vertex);
-    }
-}
-
 // Forward decleration of kernel class
 class seed_select_kernel;
 
