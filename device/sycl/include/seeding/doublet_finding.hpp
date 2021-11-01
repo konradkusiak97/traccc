@@ -38,10 +38,10 @@ void doublet_finding(const seedfinder_config& config,
 
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
-using global_atomic_ref = ::sycl::atomic_ref<
+using global_atomic_ref = ::sycl::ONEAPI::atomic_ref<
     T,
-    ::sycl::memory_order::relaxed,
-    ::sycl::memory_scope::system,
+    ::sycl::ONEAPI::memory_order::relaxed,
+    ::sycl::ONEAPI::memory_scope::system,
     ::sycl::access::address_space::global_space>;
 
 // Short aliast for accessor to local memory (shared memory in CUDA)
@@ -55,7 +55,7 @@ using local_accessor = ::sycl::accessor<
 // kernel class for doublet finding
 class DupletFind {
 public:
-    DupletFind(const seedfinder_config config,
+    DupletFind(const seedfinder_config& config,
                 internal_spacepoint_container_view internal_sp_view,
                 doublet_counter_container_view doublet_counter_view,
                 doublet_container_view mid_bot_doublet_view,
@@ -243,8 +243,8 @@ public:
         // Calculate the number doublets per bin by atomic-adding the number of
         // doublets per block
         if (workItemIdx == 0) {
-            global_atomic_ref<int> (num_mid_bot_doublets_per_bin) += bottom_result;
-            global_atomic_ref<int> (num_mid_top_doublets_per_bin) += top_result;
+            global_atomic_ref<uint32_t> (num_mid_bot_doublets_per_bin) += bottom_result;
+            global_atomic_ref<uint32_t> (num_mid_top_doublets_per_bin) += top_result;
         }
     }
 private:

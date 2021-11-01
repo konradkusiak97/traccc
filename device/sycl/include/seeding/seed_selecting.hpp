@@ -82,7 +82,7 @@ using local_accessor = ::sycl::accessor<
 
 class SeedSelect {
 public:
-    SeedSelect(const seedfilter_config filter_config,
+    SeedSelect(const seedfilter_config& filter_config,
                internal_spacepoint_container_view internal_sp_view,
                doublet_counter_container_view doublet_counter_view,
                triplet_counter_container_view triplet_counter_view,
@@ -280,7 +280,7 @@ public:
             if (seed_selecting_helper::cut_per_middle_sp(
                     m_filter_config, spM.sp(), spB.sp(), spT.sp(), aTriplet.weight) ||
                 n_seeds_per_spM == 0) {
-                auto pos = global_atomic_ref<int>(& num_seeds);
+                auto pos = global_atomic_ref<uint32_t>(num_seeds);
                 pos += 1;
 
                 // prevent overflow

@@ -41,7 +41,7 @@ void weight_updating(const seedfilter_config& filter_config,
     auto weightUpdateNdRange = ::sycl::nd_range<1>{::sycl::range<1>{globalRange},
                                                  ::sycl::range<1>{localRange}};    
     
-    q->submit([](::sycl::handler& h){
+    q->submit([&](::sycl::handler& h){
 
         // local memory initialization (equivalent to shared memory in CUDA)
         auto localMem = 

@@ -43,16 +43,16 @@ void triplet_counting(const seedfinder_config& config,
 
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
-using global_atomic_ref = ::sycl::atomic_ref<
+using global_atomic_ref = ::sycl::ONEAPI::atomic_ref<
     T,
-    ::sycl::memory_order::relaxed,
-    ::sycl::memory_scope::system,
+    ::sycl::ONEAPI::memory_order::relaxed,
+    ::sycl::ONEAPI::memory_scope::system,
     ::sycl::access::address_space::global_space>;
     
 // Kernel class for triplet counting
 class TripletCount {
 public:
-    TripletCount(const seedfinder_config config,
+    TripletCount(const seedfinder_config& config,
                 internal_spacepoint_container_view internal_sp_view,
                 doublet_counter_container_view doublet_counter_view,
                 doublet_container_view mid_bot_doublet_view,
@@ -220,7 +220,7 @@ public:
         // if the number of triplets per mb is larger than 0, write the triplet
         // counter into the container
         if (num_triplets_per_mb > 0) {
-            auto pos = global_atomic_ref<int>(num_compat_mb_per_bin);
+            auto pos = global_atomic_ref<uint32_t>(num_compat_mb_per_bin);
             pos += 1;
             triplet_counter_per_bin[pos] = {mid_bot_doublet, num_triplets_per_mb};
         }
