@@ -4,7 +4,20 @@
  *
  * Mozilla Public License Version 2.0
  */
+/*
+#include <oneapi/dpl/execution>
+#include <oneapi/dpl/async>
+*/
+#include <CL/sycl.hpp>
 
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/functional.h>
+#include <thrust/sort.h>
+
+
+#include <algorithm>
 #include "seeding/detail/doublet_counter.hpp"
 #include "seeding/detail/triplet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
@@ -13,8 +26,6 @@
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/detail/triplet.hpp>
 #include <seeding/seed_selecting_helper.hpp>
-
-#include <CL/sycl.hpp>
 
 #pragma once
 
@@ -97,9 +108,9 @@ public:
       m_seed_view(seed_view),
       m_localMem(localMem) {}
 
-      void operator()(::sycl::nd_item<1> item) {
+      void operator()(::sycl::nd_item<1> item) const {
 
-          // Mapping cuda indexing to dpc++
+        // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();
         
         // Equivalent to blockIdx.x in cuda
@@ -257,7 +268,17 @@ public:
         thrust::sort(thrust::seq, triplets_per_spM + stride,
                     triplets_per_spM + stride + n_triplets_per_spM,
                     triplet_weight_descending());
+                    
+        /*
+        // Trying the dpl sorting algortihm
+        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, triplets_per_spM + stride,
+                                              triplets_per_spM + stride + n_triplets_per_spM, 
+                                              [&](const triplet& lhs, const triplet& rhs){
 
+                    if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
+                    else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
+        });
+        */
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;
 

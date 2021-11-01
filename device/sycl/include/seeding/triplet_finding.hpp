@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <CL/sycl.hpp>
+
 #include "seeding/detail/doublet_counter.hpp"
 #include "seeding/detail/triplet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
@@ -14,8 +16,6 @@
 #include <seeding/doublet_finding_helper.hpp>
 #include <seeding/seed_selecting_helper.hpp>
 #include <seeding/triplet_finding_helper.hpp>
-
-#include <CL/sycl.hpp>
 
 namespace traccc {
 namespace sycl {
@@ -63,7 +63,8 @@ using local_accessor = ::sycl::accessor<
 
 class TripletFind {
 public:
-    TripletFind(const seedfinder_config config, const seedfilter_config filter_config,
+    TripletFind(const seedfinder_config& config,
+                const seedfilter_config& filter_config,
                 internal_spacepoint_container_view internal_sp_view,
                 doublet_counter_container_view doublet_counter_view,
                 doublet_container_view mid_bot_doublet_view,
@@ -81,7 +82,7 @@ public:
       m_triplet_view(triplet_view),
       m_localMem(localMem) {}
 
-    void operator()(::sycl::nd_item<1> item) {
+    void operator()(::sycl::nd_item<1> item) const {
 
          // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();

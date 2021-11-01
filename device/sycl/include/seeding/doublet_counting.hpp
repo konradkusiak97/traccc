@@ -7,14 +7,14 @@
 
 #pragma once
 
+#include <CL/sycl.hpp>
+
 #include "seeding/detail/doublet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/doublet_finding_helper.hpp>
 
 #include "seeding/detail/doublet.hpp"
-
-#include <CL/sycl.hpp>
 
 namespace traccc {
 namespace sycl {
@@ -52,7 +52,7 @@ public:
       m_internal_sp_view(internal_sp_view),
       m_doublet_counter_view(doublet_counter_view) {} 
 
-    void operator()(::sycl::nd_item<1> item) {
+    void operator()(::sycl::nd_item<1> item) const {
         
         // Mapping cuda indexing to dpc++
         auto workGroup = item.get_group();
