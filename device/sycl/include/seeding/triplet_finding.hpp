@@ -47,10 +47,10 @@ void triplet_finding(const seedfinder_config& config,
 
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
-using global_atomic_ref = ::sycl::atomic_ref<
+using global_atomic_ref = ::sycl::ONEAPI::atomic_ref<
     T,
-    ::sycl::memory_order::relaxed,
-    ::sycl::memory_scope::system,
+    ::sycl::ONEAPI::memory_order::relaxed,
+    ::sycl::ONEAPI::memory_scope::system,
     ::sycl::access::address_space::global_space>;
 
 // Short aliast for accessor to local memory (shared memory in CUDA)
@@ -168,11 +168,6 @@ public:
         auto& num_triplets_per_bin = triplet_device.get_headers().at(bin_idx);
         auto triplets_per_bin = triplet_device.get_items().at(bin_idx);
 
-        // Header of triplet: number of triplets per bin
-        // Item of triplet: triplet objects per bin
-        auto& num_triplets_per_bin = triplet_device.get_headers().at(bin_idx);
-        auto triplets_per_bin = triplet_device.get_items().at(bin_idx);
-
         auto num_triplets_per_thread = m_localMem;
         num_triplets_per_thread[workItemIdx] = 0;
 
@@ -202,8 +197,8 @@ public:
         // Calculate some physical quantities required for triplet compatibility
         // check
         scalar iSinTheta2 = 1 + lb.cotTheta() * lb.cotTheta();
-        scalar scatteringInRegion2 = config.maxScatteringAngle2 * iSinTheta2;
-        scatteringInRegion2 *= config.sigmaScattering * config.sigmaScattering;
+        scalar scatteringInRegion2 = m_config.maxScatteringAngle2 * iSinTheta2;
+        scatteringInRegion2 *= m_config.sigmaScattering * m_config.sigmaScattering;
         scalar curvature, impact_parameter;
 
         // find the reference (start) index of the mid-top doublet container item
@@ -268,7 +263,7 @@ public:
 
             // Check if mid-bot and mid-top doublets can form a triplet
             if (triplet_finding_helper::isCompatible(
-                    spM, lb, lt, config, iSinTheta2, scatteringInRegion2, curvature,
+                    spM, lb, lt, m_config, iSinTheta2, scatteringInRegion2, curvature,
                     impact_parameter)) {
                 unsigned int pos = triplet_start_idx + n_triplets_per_mb;
                 // prevent the overflow
@@ -279,10 +274,10 @@ public:
                 triplets_per_bin[pos] =
                     triplet({mid_bot_doublet.sp2, mid_bot_doublet.sp1,
                             mid_top_doublet.sp2, curvature,
-                            -impact_parameter * filter_config.impactWeightFactor,
+                            -impact_parameter * m_filter_config.impactWeightFactor,
                             lb.Zo()});
 
-                num_triplets_per_thread[threadIdx.x]++;
+                num_triplets_per_thread[workItemIdx]++;
                 n_triplets_per_mb++;
             }
         }
@@ -294,7 +289,7 @@ public:
         // Calculate the number of triplets per bin by atomic-adding the number of
         // triplets per block
         if (workItemIdx == 0) {
-            global_atomic_ref<int>(num_triplets_per_bin) += triplets_result;
+            global_atomic_ref<uint32_t>(num_triplets_per_bin) += triplets_result;
         }
     }
 private:

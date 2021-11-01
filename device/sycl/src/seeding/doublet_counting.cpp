@@ -37,7 +37,7 @@ void doublet_counting(const seedfinder_config& config,
     auto doubletCountNdRange = ::sycl::nd_range<1>{::sycl::range<1>{globalRange},
                                                         ::sycl::range<1>{localRange}};
     
-    q->submit([](::sycl::handler& h){
+    q->submit([&](::sycl::handler& h){
         DupletCount kernel( config, internal_sp_view, 
                             doublet_counter_container_view);
         h.parallel_for<class doublet_count_kernel>(doubletCountNdRange, kernel);

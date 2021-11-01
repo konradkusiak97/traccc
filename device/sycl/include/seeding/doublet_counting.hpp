@@ -36,16 +36,16 @@ void doublet_counting(const seedfinder_config& config,
 
 // Define shorthand alias for the type of atomics needed by this kernel 
 template <typename T>
-using global_atomic_ref = ::sycl::atomic_ref<
+using global_atomic_ref = ::sycl::ONEAPI::atomic_ref<
     T,
-    ::sycl::memory_order::relaxed,
-    ::sycl::memory_scope::system,
+    ::sycl::ONEAPI::memory_order::relaxed,
+    ::sycl::ONEAPI::memory_scope::system,
     ::sycl::access::address_space::global_space>;
     
 // Kernel class for doublet counting
 class DupletCount {
 public:
-    DupletCount(const seedfinder_config config,
+    DupletCount(const seedfinder_config& config,
                internal_spacepoint_container_view internal_sp_view, 
                 doublet_counter_container_view doublet_counter_view)
     : m_config(config),
@@ -58,7 +58,7 @@ public:
         auto workGroup = item.get_group();
         
         // Equivalent to blockIdx.x in cuda
-        auto groupIdx = workGroup.get_linear_id()
+        auto groupIdx = workGroup.get_linear_id();
         // Equivalent to blockDim.x in cuda
         auto groupDim = workGroup.get_local_range(0);
         // Equivalent to threadIdx.x in cuda
@@ -112,7 +112,7 @@ public:
         doublet_counter_device.get_items().at(bin_idx);
 
     // index of internal spacepoint in the item vector
-    auto sp_idx = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
+    uint32_t sp_idx = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
 
     if (sp_idx >= doublet_counter_per_bin.size()) return;
 
@@ -155,7 +155,7 @@ public:
     // if number of mid-bot and mid-top doublet for a middle spacepoint is
     // larger than 0, the entry is added to the doublet counter
     if (n_mid_bot > 0 && n_mid_top > 0) {
-        auto pos = global_atomic_ref<int>(num_compat_spM_per_bin);
+        auto pos = global_atomic_ref<uint32_t>(num_compat_spM_per_bin);
         pos += 1;
         doublet_counter_per_bin[pos] = {spM_loc, n_mid_bot, n_mid_top};
     }        

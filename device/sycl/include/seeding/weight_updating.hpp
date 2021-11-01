@@ -43,11 +43,11 @@ using local_accessor = ::sycl::accessor<
 
 class WeightUpdate {
 public:
-    WeightUpdate(const seedfilter_config filter_config,
+    WeightUpdate(const seedfilter_config& filter_config,
                 internal_spacepoint_container_view internal_sp_view,
                 triplet_counter_container_view triplet_counter_view,
                 triplet_container_view triplet_view,
-                local_accessor<int> localMem)
+                local_accessor<scalar> localMem)
     : m_filter_config(filter_config),
       m_internal_sp_view(internal_sp_view),
       m_triplet_counter_view(triplet_counter_view),
@@ -231,7 +231,7 @@ private:
     internal_spacepoint_container_view m_internal_sp_view;
     triplet_counter_container_view m_triplet_counter_view;
     triplet_container_view m_triplet_view;
-    local_accessor<int> m_localMem;
+    local_accessor<scalar> m_localMem;
 };
 
 }  // namespace sycl

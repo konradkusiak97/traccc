@@ -47,7 +47,7 @@ void triplet_counting(const seedfinder_config& config,
     // 1 dim ND Range for the kernel
     auto tripletCountNdRange = ::sycl::nd_range<1>{::sycl::range<1>{globalRange},
                                                         ::sycl::range<1>{localRange}};
-    q->submit([](::sycl::handler& h){
+    q->submit([&](::sycl::handler& h){
         TripletCount kernel(config, internal_sp_view, doublet_counter_container_view,
                             mid_bot_doublet_view, mid_top_doublet_view,
                             triplet_counter_container_view);
