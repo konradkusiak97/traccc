@@ -5,12 +5,6 @@
  * Mozilla Public License Version 2.0
  */
 
-#include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
-#include <thrust/sort.h>
-
-#include <algorithm>
 #include "seeding/seed_selecting.hpp"
 
 namespace traccc {

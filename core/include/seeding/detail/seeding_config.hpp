@@ -12,6 +12,9 @@
 namespace traccc {
 
 struct seedfinder_config {
+
+    seedfinder_config() = default;
+    
     // limiting location of measurements
     // Beomki's note: this value introduces redundant bins
     // without any spacepoints
