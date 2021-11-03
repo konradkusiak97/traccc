@@ -4,18 +4,19 @@
  *
  * Mozilla Public License Version 2.0
  */
-/*
+
 #include <oneapi/dpl/execution>
+#include <oneapi/dpl/iterator>
+#include <oneapi/dpl/algorithm>
 #include <oneapi/dpl/async>
-*/
+
 #include <CL/sycl.hpp>
-
-
+/*
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/sort.h>
-
+*/
 
 #include <algorithm>
 #include "seeding/detail/doublet_counter.hpp"
@@ -52,7 +53,7 @@ void seed_selecting(const seedfilter_config& filter_config,
                     host_seed_container& seed_container,
                     vecmem::memory_resource* resource,
                     ::sycl::queue* q);
-
+/*
 // Thrust comparator function for triplet weight (in descending order)
 struct triplet_weight_descending
     : public thrust::binary_function<triplet, triplet, bool> {
@@ -64,7 +65,7 @@ struct triplet_weight_descending
         }
     }
 };
-
+*/
 // comparator function for triplet weight (in ascending order)
 static bool triplet_weight_compare(const triplet& lhs,
                                               const triplet& rhs) {
@@ -180,7 +181,7 @@ public:
         auto& num_seeds = seed_device.get_headers().at(0);
         auto seeds = seed_device.get_items().at(0);
 
-        auto triplets_per_spM = m_localMem.get_pointer();
+        auto triplets_per_spM = m_localMem;
 
         // index of doublet counter in the item vector
         auto gid = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
@@ -244,10 +245,10 @@ public:
                     //       Let's not be so obsessed about achieving
                     //       perfectly same result :))))))))
 
-                    int min_index = std::min_element(triplets_per_spM + begin_idx,
-                                                    triplets_per_spM + end_idx,
+                    int min_index = std::min_element(triplets_per_spM.get_pointer() + begin_idx,
+                                                    triplets_per_spM.get_pointer() + end_idx,
                                                     triplet_weight_compare) -
-                                    triplets_per_spM;
+                                    triplets_per_spM.get_pointer();
 
                     auto& min_weight = triplets_per_spM[min_index].weight;
 
@@ -262,23 +263,33 @@ public:
                 }
             }       
         }
-
+        /*
         // sort the triplets per spM
         // sequential version of thrust sorting algorithm is used
-        thrust::sort(thrust::seq, triplets_per_spM + stride,
-                    triplets_per_spM + stride + n_triplets_per_spM,
+        thrust::sort(thrust::seq, triplets_per_spM.get_pointer().get() + stride,
+                    triplets_per_spM.get_pointer().get() + stride + n_triplets_per_spM,
                     triplet_weight_descending());
-                    
+                    */
         /*
+        std::sort(triplets_per_spM.get_pointer() + stride,
+                    triplets_per_spM.get_pointer() + stride + n_triplets_per_spM, [&](const triplet& lhs, const triplet& rhs){
+
+                    if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
+                    else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
+                    });
+                    
+        */
+
         // Trying the dpl sorting algortihm
-        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, triplets_per_spM + stride,
+        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, 
+                                              triplets_per_spM + stride,
                                               triplets_per_spM + stride + n_triplets_per_spM, 
                                               [&](const triplet& lhs, const triplet& rhs){
 
                     if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
                     else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
         });
-        */
+        
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;
 

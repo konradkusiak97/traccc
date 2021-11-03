@@ -13,7 +13,7 @@ namespace traccc {
 
 struct seedfinder_config {
 
-    seedfinder_config() = default;
+    // seedfinder_config() = default;
     
     // limiting location of measurements
     // Beomki's note: this value introduces redundant bins
@@ -72,7 +72,7 @@ struct seedfinder_config {
     scalar bFieldInZ = 0.00199724;
     // location of beam in x,y plane.
     // used as offset for Space Points
-    vector2 beamPos{-.5, -.5};
+    // vector2 beamPos{-.5, -.5};
 
     // average radiation lengths of material on the length of a seed. used for
     // scattering.
