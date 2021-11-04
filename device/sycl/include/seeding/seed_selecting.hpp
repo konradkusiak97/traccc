@@ -4,12 +4,12 @@
  *
  * Mozilla Public License Version 2.0
  */
-
+/*
 #include <oneapi/dpl/execution>
 #include <oneapi/dpl/iterator>
 #include <oneapi/dpl/algorithm>
 #include <oneapi/dpl/async>
-
+*/
 #include <CL/sycl.hpp>
 /*
 #include <thrust/device_ptr.h>
@@ -247,7 +247,13 @@ public:
 
                     int min_index = std::min_element(triplets_per_spM.get_pointer() + begin_idx,
                                                     triplets_per_spM.get_pointer() + end_idx,
-                                                    triplet_weight_compare) -
+                                                    [&](const triplet& lhs, const triplet& rhs){
+                                                        if (lhs.weight != rhs.weight) {
+                                                            return lhs.weight < rhs.weight;
+                                                        } else {
+                                                            return fabs(lhs.z_vertex) > fabs(rhs.z_vertex);
+                                                        }
+                                                    }) -
                                     triplets_per_spM.get_pointer();
 
                     auto& min_weight = triplets_per_spM[min_index].weight;
@@ -279,7 +285,7 @@ public:
                     });
                     
         */
-
+        /*
         // Trying the dpl sorting algortihm
         oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, 
                                               triplets_per_spM + stride,
@@ -288,7 +294,7 @@ public:
 
                     if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
                     else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
-        });
+        });*/
         
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;

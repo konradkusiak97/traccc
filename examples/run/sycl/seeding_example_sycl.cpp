@@ -15,7 +15,7 @@
 
 // algorithms
 #include "clusterization/clusterization_algorithm.hpp"
-#include "sycl/track_finding/seeding_algorithm.hpp"
+#include "../../algorithms/sycl/include/sycl/track_finding/seeding_algorithm.hpp"
 #include "track_finding/seeding_algorithm.hpp"
 
 // io
