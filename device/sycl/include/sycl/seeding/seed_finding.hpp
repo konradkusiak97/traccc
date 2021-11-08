@@ -8,22 +8,20 @@
 #pragma once
 
 #include <algorithm>
-#include "seeding/detail/doublet_counter.hpp"          //  it's duplicate code for sycl and cuda right now
-#include "seeding/detail/multiplet_estimator.hpp"      
+#include "sycl/seeding/detail/doublet_counter.hpp"          //  it's duplicate code for sycl and cuda right now
+#include "sycl/seeding/detail/multiplet_estimator.hpp"    
+#include "sycl/seeding/doublet_counting.hpp"
+#include "sycl/seeding/doublet_finding.hpp"
+#include "sycl/seeding/seed_selecting.hpp"  
+#include "sycl/seeding/triplet_counting.hpp"
+#include "sycl/seeding/triplet_finding.hpp"
+#include "sycl/seeding/weight_updating.hpp"     
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <iostream>
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/detail/spacepoint_grid.hpp>
-#include <seeding/seed_filtering.hpp>
-
-// kernel includes
-#include "seeding/doublet_counting.hpp"
-#include "seeding/doublet_finding.hpp"
-#include "seeding/triplet_counting.hpp"
-#include "seeding/triplet_finding.hpp"
-#include "seeding/weight_updating.hpp"
-#include "seeding/seed_selecting.hpp"           
+#include <seeding/seed_filtering.hpp>      
 
 namespace traccc {
 namespace sycl {
@@ -36,9 +34,11 @@ struct seed_finding {
     /// @param sp_grid spacepoint grid
     /// @param stats_config experiment-dependent statistics estimator
     /// @param mr vecmem memory resource
+    /// @param q sycl queue for kernel scheduling
     seed_finding(seedfinder_config& config,
                  std::shared_ptr<spacepoint_grid> sp_grid,
-                 multiplet_estimator& estimator, vecmem::memory_resource* mr,
+                 multiplet_estimator& estimator, 
+                 vecmem::memory_resource* mr,
                  ::sycl::queue* q)
         : m_seedfinder_config(config),
           m_estimator(estimator),
@@ -107,31 +107,28 @@ struct seed_finding {
                                        doublet_counter_container, m_mr, m_q);
 
         // doublet finding
-        traccc::cuda::doublet_finding(
-            m_seedfinder_config, isp_container, doublet_counter_container,
-            mid_bot_container, mid_top_container, m_mr, m_q);
+        traccc::sycl::doublet_finding(m_seedfinder_config, isp_container, doublet_counter_container,
+                                     mid_bot_container, mid_top_container, m_mr, m_q);
 
         // triplet counting
-        traccc::cuda::triplet_counting(m_seedfinder_config, isp_container,
+        traccc::sycl::triplet_counting(m_seedfinder_config, isp_container,
                                        doublet_counter_container,
                                        mid_bot_container, mid_top_container,
                                        triplet_counter_container, m_mr, m_q);  
 
         // triplet finding
-        traccc::cuda::triplet_finding(
-            m_seedfinder_config, m_seedfilter_config, isp_container,
-            doublet_counter_container, mid_bot_container, mid_top_container,
-            triplet_counter_container, triplet_container, m_mr, m_q);
+        traccc::sycl::triplet_finding(m_seedfinder_config, m_seedfilter_config, isp_container,
+                                      doublet_counter_container, mid_bot_container, mid_top_container,
+                                      triplet_counter_container, triplet_container, m_mr, m_q);
 
         // weight updating
-        traccc::cuda::weight_updating(m_seedfilter_config, isp_container,
+        traccc::sycl::weight_updating(m_seedfilter_config, isp_container,
                                       triplet_counter_container,
                                       triplet_container, m_mr, m_q);    
 
         // seed selecting
-        traccc::cuda::seed_selecting(
-            m_seedfilter_config, isp_container, doublet_counter_container,
-            triplet_counter_container, triplet_container, seed_container, m_mr, m_q);
+        traccc::sycl::seed_selecting(m_seedfilter_config, isp_container, doublet_counter_container,
+                                     triplet_counter_container, triplet_container, seed_container, m_mr, m_q);
 
         return seed_container;  
         

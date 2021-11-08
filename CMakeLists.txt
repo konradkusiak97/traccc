@@ -29,6 +29,8 @@ set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
 include( traccc-compiler-options )
 
+set( CMAKE_CUDA_STANDARD 17 CACHE STRING "The (CUDA) C++ standard to use" )
+
 # option for algebra plugins (ARRAY EIGEN SMATRIX VC VECMEM)
 set(TRACCC_ALGEBRA_PLUGIN EIGEN)
 if (TRACCC_ALGEBRA_PLUGIN)
@@ -43,14 +45,19 @@ if(TRACCC_CUSTOM_SCALARTYPE)
     message(STATUS "Building with custom scalar type: " ${TRACCC_CUSTOM_SCALARTYPE})
     set(ALGEBRA_PLUGIN_CUSTOM_SCALARTYPE ${TRACCC_CUSTOM_SCALARTYPE})
 endif()
-    
+
+# Build the necessary externals.
+include(traccc-dependencies)
+add_subdirectory(extern)
+
 # Set GPU-related options
 if( TRACCC_BUILD_CUDA )
-  set( CMAKE_CUDA_STANDARD 17 CACHE STRING "The (CUDA) C++ standard to use" )
   add_subdirectory( device/cuda )
 endif()
 
 if ( TRACCC_BUILD_SYCL )
+  list( APPEND CMAKE_MODULE_PATH "${vecmem_SOURCE_DIR}/cmake/sycl" )
+  enable_language(SYCL)
   add_subdirectory( device/sycl )
 endif()
 
@@ -63,6 +70,4 @@ if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
-# Build the necessary externals.
-include(traccc-dependencies)
-add_subdirectory(extern)
+

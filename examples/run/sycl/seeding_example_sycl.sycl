@@ -4,6 +4,8 @@
  *
  * Mozilla Public License Version 2.0
  */
+// sycl 
+#include <CL/sycl.hpp>
 
 #include <chrono>
 #include <iomanip>
@@ -23,8 +25,6 @@
 #include "io/reader.hpp"
 #include "io/writer.hpp"
 
-// sycl 
-#include <CL/sycl.hpp>
 
 int seq_run(const std::string& detector_file, const std::string& hits_dir,
             unsigned int events, bool skip_cpu) {

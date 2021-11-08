@@ -47,7 +47,7 @@ struct spacepoint_grouping {
         // create number of bins equal to number of millimeters rMax
         // (worst case minR: m_configured minR + 1mm)
 
-        size_t numRBins = (m_config.rMax + getter::norm(m_config.beamPos));
+        size_t numRBins = (m_config.rMax + getter::norm(vector2{m_config.beamPos_x, m_config.beamPos_y}));
         std::vector<std::vector<internal_spacepoint<spacepoint>>> rBins(
             numRBins);
 
@@ -74,7 +74,7 @@ struct spacepoint_grouping {
                 vector3 spPosition({spX, spY, spZ});
 
                 auto isp = internal_spacepoint<spacepoint>(
-                    sp, spPosition, m_config.beamPos, variance);
+                    sp, spPosition, vector2{m_config.beamPos_x, m_config.beamPos_y}, variance);
                 // calculate r-Bin index and protect against overflow (underflow
                 // not possible)
                 size_t rIndex = isp.radius();

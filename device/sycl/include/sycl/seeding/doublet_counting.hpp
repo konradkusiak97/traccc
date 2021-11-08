@@ -9,7 +9,7 @@
 
 #include <CL/sycl.hpp>
 
-#include "seeding/detail/doublet_counter.hpp"
+#include "sycl/seeding/detail/doublet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/doublet_finding_helper.hpp>

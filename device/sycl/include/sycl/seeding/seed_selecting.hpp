@@ -11,16 +11,15 @@
 #include <oneapi/dpl/async>
 */
 #include <CL/sycl.hpp>
-/*
-#include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
-#include <thrust/sort.h>
-*/
+
+// #include <thrust/device_ptr.h>
+// #include <thrust/execution_policy.h>
+// #include <thrust/functional.h>
+// #include <thrust/sort.h>
 
 #include <algorithm>
-#include "seeding/detail/doublet_counter.hpp"
-#include "seeding/detail/triplet_counter.hpp"
+#include "sycl/seeding/detail/doublet_counter.hpp"
+#include "sycl/seeding/detail/triplet_counter.hpp"
 #include <edm/internal_spacepoint.hpp>
 #include <edm/seed.hpp>
 #include <seeding/detail/doublet.hpp>
@@ -53,19 +52,19 @@ void seed_selecting(const seedfilter_config& filter_config,
                     host_seed_container& seed_container,
                     vecmem::memory_resource* resource,
                     ::sycl::queue* q);
-/*
+
 // Thrust comparator function for triplet weight (in descending order)
-struct triplet_weight_descending
-    : public thrust::binary_function<triplet, triplet, bool> {
-        bool operator()(const triplet& lhs, const triplet& rhs) const {
-        if (lhs.weight != rhs.weight) {
-            return lhs.weight > rhs.weight;
-        } else {
-            return fabs(lhs.z_vertex) < fabs(rhs.z_vertex);
-        }
-    }
-};
-*/
+// struct triplet_weight_descending
+//     : public thrust::binary_function<triplet, triplet, bool> {
+//         bool operator()(const triplet& lhs, const triplet& rhs) const {
+//         if (lhs.weight != rhs.weight) {
+//             return lhs.weight > rhs.weight;
+//         } else {
+//             return fabs(lhs.z_vertex) < fabs(rhs.z_vertex);
+//         }
+//     }
+// };
+
 // comparator function for triplet weight (in ascending order)
 static bool triplet_weight_compare(const triplet& lhs,
                                               const triplet& rhs) {
@@ -269,13 +268,13 @@ public:
                 }
             }       
         }
-        /*
+        
         // sort the triplets per spM
         // sequential version of thrust sorting algorithm is used
-        thrust::sort(thrust::seq, triplets_per_spM.get_pointer().get() + stride,
-                    triplets_per_spM.get_pointer().get() + stride + n_triplets_per_spM,
-                    triplet_weight_descending());
-                    */
+        // thrust::sort(thrust::seq, triplets_per_spM.get_pointer() + stride,
+        //             triplets_per_spM.get_pointer() + stride + n_triplets_per_spM,
+        //             triplet_weight_descending());
+         
         /*
         std::sort(triplets_per_spM.get_pointer() + stride,
                     triplets_per_spM.get_pointer() + stride + n_triplets_per_spM, [&](const triplet& lhs, const triplet& rhs){
