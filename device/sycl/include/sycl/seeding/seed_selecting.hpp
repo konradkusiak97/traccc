@@ -4,12 +4,10 @@
  *
  * Mozilla Public License Version 2.0
  */
-/*
+
 #include <oneapi/dpl/execution>
-#include <oneapi/dpl/iterator>
 #include <oneapi/dpl/algorithm>
 #include <oneapi/dpl/async>
-*/
 #include <CL/sycl.hpp>
 
 // #include <thrust/device_ptr.h>
@@ -271,8 +269,8 @@ public:
         
         // sort the triplets per spM
         // sequential version of thrust sorting algorithm is used
-        // thrust::sort(thrust::seq, triplets_per_spM.get_pointer() + stride,
-        //             triplets_per_spM.get_pointer() + stride + n_triplets_per_spM,
+        // std::sort(/*thrust::seq,*/ static_cast<triplet*>(triplets_per_spM.get_pointer() + stride),
+        //             static_cast<triplet*>(triplets_per_spM.get_pointer() + stride + n_triplets_per_spM),
         //             triplet_weight_descending());
          
         /*
@@ -284,16 +282,16 @@ public:
                     });
                     
         */
-        /*
+        
         // Trying the dpl sorting algortihm
-        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, 
-                                              triplets_per_spM + stride,
-                                              triplets_per_spM + stride + n_triplets_per_spM, 
-                                              [&](const triplet& lhs, const triplet& rhs){
+        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::unseq,
+                static_cast<triplet*>(triplets_per_spM.get_pointer() + stride),
+                static_cast<triplet*>(triplets_per_spM.get_pointer() + stride + n_triplets_per_spM), 
+                [&](const triplet& lhs, const triplet& rhs){
 
                     if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
                     else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
-        });*/
+        });
         
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;
