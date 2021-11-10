@@ -264,17 +264,6 @@ public:
 
         // sort the triplets per spM
         // sequential version of thrust sorting algorithm is used
-<<<<<<< HEAD:device/sycl/include/seeding/seed_selecting.hpp
-        thrust::sort(thrust::seq, triplets_per_spM + stride,
-                    triplets_per_spM + stride + n_triplets_per_spM,
-                    triplet_weight_descending());
-                    
-        /*
-        // Trying the dpl sorting algortihm
-        oneapi::dpl::experimental::sort_async(oneapi::dpl::execution::dpcpp_default, triplets_per_spM + stride,
-                                              triplets_per_spM + stride + n_triplets_per_spM, 
-                                              [&](const triplet& lhs, const triplet& rhs){
-=======
         // std::sort(/*thrust::seq,*/ static_cast<triplet*>(triplets_per_spM.get_pointer() + stride),
         //             static_cast<triplet*>(triplets_per_spM.get_pointer() + stride + n_triplets_per_spM),
         //             triplet_weight_descending());
@@ -294,16 +283,11 @@ public:
                 static_cast<triplet*>(triplets_per_spM.get_pointer() + stride),
                 static_cast<triplet*>(triplets_per_spM.get_pointer() + stride + n_triplets_per_spM), 
                 [&](const triplet& lhs, const triplet& rhs){
->>>>>>> 1676121... Experimenting with sorting:device/sycl/include/sycl/seeding/seed_selecting.hpp
 
                     if (lhs.weight != rhs.weight) return lhs.weight > rhs.weight;
                     else return fabs(lhs.z_vertex) < fabs(rhs.z_vertex); 
         });
-<<<<<<< HEAD:device/sycl/include/seeding/seed_selecting.hpp
         */
-=======
-        
->>>>>>> 1676121... Experimenting with sorting:device/sycl/include/sycl/seeding/seed_selecting.hpp
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;
 
