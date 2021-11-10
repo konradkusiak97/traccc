@@ -10,7 +10,7 @@
 #include <chrono>
 #include <iostream>
 
-#include "sycl/seeding/seed_finding.hpp"
+#include "../../../device/sycl/include/sycl/seeding/seed_finding.hpp"
 #include "seeding/spacepoint_grouping.hpp"
 
 namespace traccc {

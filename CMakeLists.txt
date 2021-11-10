@@ -58,6 +58,7 @@ if( TRACCC_SETUP_VECMEM )
    endif()
 endif()
 
+<<<<<<< HEAD
 # Set up Eigen3.
 option( TRACCC_SETUP_EIGEN3
    "Set up the Eigen3 target(s) explicitly" TRUE )
@@ -74,6 +75,21 @@ endif()
 
 if ( TRACCC_BUILD_SYCL )
   add_subdirectory( device/sycl )
+=======
+# Build the necessary externals.
+include(traccc-dependencies)
+add_subdirectory(extern)
+
+# Set GPU-related options
+if( TRACCC_BUILD_CUDA )
+  add_subdirectory( device/cuda )
+>>>>>>> 1676121e928ca5a8252e799f56d59168f117385c
+endif()
+
+if ( TRACCC_BUILD_SYCL )
+  list( APPEND CMAKE_MODULE_PATH "${vecmem_SOURCE_DIR}/cmake/sycl" )
+  enable_language(SYCL)
+  add_subdirectory( device/sycl )
 endif()
 
 # Build the traccc code.
@@ -85,8 +101,12 @@ add_subdirectory( examples )
 add_subdirectory( io )
 add_subdirectory( plugins )
 
+<<<<<<< HEAD
 # Set up the test(s).
 include( CTest )
 if( BUILD_TESTING AND TRACCC_BUILD_TESTING )
    add_subdirectory( tests )
 endif()
+=======
+
+>>>>>>> 1676121e928ca5a8252e799f56d59168f117385c

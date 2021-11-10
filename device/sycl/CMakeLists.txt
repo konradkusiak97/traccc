@@ -1,26 +1,26 @@
 add_library(traccc_sycl SHARED 
 # header files
-include/seeding/detail/doublet_counter.hpp
-include/seeding/detail/triplet_counter.hpp
-include/seeding/detail/multiplet_estimator.hpp
-include/seeding/doublet_counting.hpp
-include/seeding/doublet_finding.hpp
-include/seeding/seed_finding.hpp
-include/seeding/seed_selecting.hpp
-include/seeding/triplet_counting.hpp
-include/seeding/triplet_finding.hpp
-include/seeding/weight_updating.hpp
+include/sycl/seeding/detail/doublet_counter.hpp
+include/sycl/seeding/detail/triplet_counter.hpp
+include/sycl/seeding/detail/multiplet_estimator.hpp
+include/sycl/seeding/doublet_counting.hpp
+include/sycl/seeding/doublet_finding.hpp
+include/sycl/seeding/seed_finding.hpp
+include/sycl/seeding/seed_selecting.hpp
+include/sycl/seeding/triplet_counting.hpp
+include/sycl/seeding/triplet_finding.hpp
+include/sycl/seeding/weight_updating.hpp
 # implementation files
-src/seeding/doublet_counting.cpp
-src/seeding/doublet_finding.cpp
-src/seeding/seed_selecting.cpp
-src/seeding/triplet_counting.cpp
-src/seeding/triplet_finding.cpp
-src/seeding/weight_updating.cpp)
+src/seeding/doublet_counting.sycl
+src/seeding/doublet_finding.sycl
+src/seeding/seed_selecting.sycl
+src/seeding/triplet_counting.sycl
+src/seeding/triplet_finding.sycl
+src/seeding/weight_updating.sycl)
 
-target_compile_options(
-	traccc_sycl
-	PRIVATE -fsycl)
+#target_compile_options(
+#	traccc_sycl
+#	PRIVATE -fsycl)
 
 target_include_directories(traccc_sycl PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
