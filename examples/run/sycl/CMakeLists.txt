@@ -1,6 +1,17 @@
+# TRACCC library, part of the ACTS project (R&D line)
+#
+# (c) 2021 CERN for the benefit of the ACTS project
+#
+# Mozilla Public License Version 2.0
+
+# We need the SYCL language in this directory.
+enable_language( SYCL )
+
 add_executable (seeding_example_sycl seeding_example_sycl.sycl)
 
+#target_link_libraries(seeding_example_sycl PUBLIC vecmem::sycl)
+
 target_link_libraries (seeding_example_sycl LINK_PUBLIC
-  traccc::io
-  traccc::algorithms
-  traccc::algorithms_sycl)
+   traccc::io
+   traccc::algorithms
+   traccc::algorithms_sycl)
