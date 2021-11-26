@@ -101,13 +101,14 @@ struct seed_finding {
         // doublet counting
         traccc::cuda::doublet_counting(m_seedfinder_config, isp_container,
                                        doublet_counter_container, m_mr);
-        std::cout << doublet_counter_container.get_items().at(5)[5].n_mid_bot << std::endl;
-
         // doublet finding
         traccc::cuda::doublet_finding(
             m_seedfinder_config, isp_container, doublet_counter_container,
             mid_bot_container, mid_top_container, m_mr);
-        std::cout << mid_bot_container.get_headers().at(0) << std::endl;     
+        // for (auto i : mid_bot_container.get_headers()) {
+        //     std:: cout << i << " ";
+        // }                                               
+        // std::cout << std::endl;     
 
         // triplet counting
         traccc::cuda::triplet_counting(m_seedfinder_config, isp_container,
