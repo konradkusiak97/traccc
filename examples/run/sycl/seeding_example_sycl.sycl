@@ -12,6 +12,7 @@
 #include <iostream>
 
 // vecmem
+#include <vecmem/memory/cuda/managed_memory_resource.hpp>
 #include <vecmem/memory/sycl/shared_memory_resource.hpp>
 #include <vecmem/memory/host_memory_resource.hpp>
 
@@ -50,6 +51,7 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
     std::cout << "Running on device: "
                 << q.get_device().get_info<::sycl::info::device::name>() << "\n";
     vecmem::sycl::shared_memory_resource shared_mr(&q);
+    vecmem::cuda::managed_memory_resource mng_mr;
 
     // Elapsed time
     float wall_time(0);
@@ -58,7 +60,7 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
     float seeding_sycl(0);
 
     traccc::seeding_algorithm sa(&host_mr);
-    traccc::sycl::seeding_algorithm sa_sycl(&shared_mr, &q);
+    traccc::sycl::seeding_algorithm sa_sycl(&shared_mr, &mng_mr, &q);
 
     /*-----------------
       hit reading

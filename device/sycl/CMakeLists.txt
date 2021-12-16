@@ -27,6 +27,6 @@ target_include_directories(traccc_sycl PUBLIC
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
 	
 target_include_directories(traccc_sycl PRIVATE "/atlas/software/cuda/11.4.1/x86_64-ubuntu1804/include")
-target_link_libraries(traccc_sycl PUBLIC traccc::core vecmem::sycl)
+target_link_libraries(traccc_sycl PUBLIC traccc::core vecmem::sycl vecmem::cuda)
 
 add_library(traccc::sycl ALIAS traccc_sycl)

@@ -22,6 +22,7 @@
 #include <seeding/detail/seeding_config.hpp>
 #include <seeding/detail/spacepoint_grid.hpp>
 #include <seeding/seed_filtering.hpp>    
+#include <vecmem/utils/copy.hpp>
 
 namespace traccc {
 namespace sycl {
@@ -45,12 +46,15 @@ struct seed_finding {
     /// @param q sycl queue for kernel scheduling
     seed_finding(seedfinder_config& config,
                  std::shared_ptr<spacepoint_grid> sp_grid,
+                 std::shared_ptr<spacepoint_grid> sp_grid_cuda,
                  multiplet_estimator& estimator, 
                  vecmem::memory_resource* mr,
+                 vecmem::memory_resource* mr_cuda,
                  ::sycl::queue* q)
         : m_seedfinder_config(config),
           m_estimator(estimator),
           m_mr(mr),
+          m_mr_cuda(mr_cuda),
           m_q(q),
           // initialize all vecmem containers:
           // the size of header and item vector = the number of spacepoint bins
@@ -59,6 +63,10 @@ struct seed_finding {
           mid_top_container(sp_grid->size(false), mr),
           triplet_counter_container(sp_grid->size(false), mr),
           triplet_container(sp_grid->size(false), mr),
+          doublet_counter_container_cuda(sp_grid_cuda->size(false), mr_cuda),
+          triplet_counter_container_cuda(sp_grid_cuda->size(false), mr_cuda),
+          triplet_container_cuda(sp_grid_cuda->size(false), mr_cuda),
+          seed_container_cuda(1, mr_cuda),
           seed_container(1, mr) {
 
         first_alloc = true;
@@ -136,8 +144,7 @@ struct seed_finding {
         traccc::sycl::weight_updating(m_seedfilter_config, isp_container,
                                       triplet_counter_container,
                                       triplet_container, m_mr, m_q);    
-        
-        // seed selecting
+                                      
         traccc::sycl::seed_selecting(m_seedfilter_config, isp_container, doublet_counter_container,
                                      triplet_counter_container, triplet_container, seed_container, m_mr, m_q);
 
@@ -156,8 +163,13 @@ private:
     host_doublet_container mid_top_container;
     host_triplet_counter_container triplet_counter_container;
     host_triplet_container triplet_container;
+    host_doublet_counter_container doublet_counter_container_cuda;
+    host_triplet_counter_container triplet_counter_container_cuda;
+    host_triplet_container triplet_container_cuda;
+    host_seed_container seed_container_cuda;
     host_seed_container seed_container;
     vecmem::memory_resource* m_mr;
+    vecmem::memory_resource* m_mr_cuda;
     ::sycl::queue* m_q;
 };
 

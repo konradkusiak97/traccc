@@ -22,7 +22,12 @@ class seeding_algorithm {
     using output_type =
         std::pair<host_internal_spacepoint_container, host_seed_container>;
 
-    seeding_algorithm(vecmem::memory_resource* mr = nullptr, ::sycl::queue* q = nullptr) : m_mr(mr), m_q(q) {
+    seeding_algorithm(vecmem::memory_resource* mr_sycl = nullptr, 
+                      vecmem::memory_resource* mr_cuda = nullptr, 
+                      ::sycl::queue* q = nullptr) 
+        : m_mr_sycl(mr_sycl), 
+          m_mr_cuda(mr_cuda),
+          m_q(q) {
 
         m_config.highland = 13.6 * std::sqrt(m_config.radLengthPerSeed) *
                             (1 + 0.038 * std::log(m_config.radLengthPerSeed));
@@ -55,11 +60,13 @@ class seeding_algorithm {
         m_estimator.m_cfg.par_for_triplets = {1, 0, 0.02149};
         m_estimator.m_cfg.par_for_seeds = {0, 0.3431};
 
-        sg = std::make_shared<traccc::spacepoint_grouping>(
-            traccc::spacepoint_grouping(m_config, m_grid_config, m_mr));
+        sg_sycl = std::make_shared<traccc::spacepoint_grouping>(
+            traccc::spacepoint_grouping(m_config, m_grid_config, m_mr_sycl));
+        sg_cuda = std::make_shared<traccc::spacepoint_grouping>(
+            traccc::spacepoint_grouping(m_config, m_grid_config, m_mr_cuda));
         sf = std::make_shared<traccc::sycl::seed_finding>(
-            traccc::sycl::seed_finding(m_config, sg->get_spgrid(), m_estimator,
-                                       m_mr, m_q));
+            traccc::sycl::seed_finding(m_config, sg_sycl->get_spgrid(), sg_cuda->get_spgrid(), m_estimator,
+                                       m_mr_sycl, m_mr_cuda, m_q));
     }
 
     output_type operator()(input_type& i) {
@@ -70,7 +77,7 @@ class seeding_algorithm {
 
     void operator()(input_type& spacepoints_per_event, output_type& o) {
         // spacepoint grouping
-        auto internal_sp_per_event = sg->operator()(spacepoints_per_event);
+        auto internal_sp_per_event = sg_sycl->operator()(spacepoints_per_event);
 
         // seed finding
         auto seeds = sf->operator()(internal_sp_per_event);
@@ -84,9 +91,11 @@ class seeding_algorithm {
     seedfinder_config m_config;
     spacepoint_grid_config m_grid_config;
     multiplet_estimator m_estimator;
-    std::shared_ptr<traccc::spacepoint_grouping> sg;
+    std::shared_ptr<traccc::spacepoint_grouping> sg_sycl;
+    std::shared_ptr<traccc::spacepoint_grouping> sg_cuda;
     std::shared_ptr<traccc::sycl::seed_finding> sf;
-    vecmem::memory_resource* m_mr;
+    vecmem::memory_resource* m_mr_sycl;
+    vecmem::memory_resource* m_mr_cuda;
     ::sycl::queue* m_q;
 };
 
