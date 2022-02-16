@@ -23,7 +23,7 @@ class seeding_algorithm
     : public algorithm<host_seed_collection(host_spacepoint_container&&)> {
 
     public:
-    seeding_algorithm(vecmem::memory_resource& mr, ::sycl::queue* q = nullptr)
+    seeding_algorithm(vecmem::memory_resource& mr, ::sycl::queue* q = nullptr, ::sycl::queue* qH = nullptr)
         : m_mr(mr) {
 
         m_config.highland = 13.6 * std::sqrt(m_config.radLengthPerSeed) *
@@ -48,9 +48,9 @@ class seeding_algorithm
         m_grid_config.cotThetaMax = m_config.cotThetaMax;
 
         sb = std::make_shared<traccc::sycl::spacepoint_binning>(
-            traccc::sycl::spacepoint_binning(m_config, m_grid_config, mr, q));
+            traccc::sycl::spacepoint_binning(m_config, m_grid_config, mr, qH));
         sf = std::make_shared<traccc::sycl::seed_finding>(
-            traccc::sycl::seed_finding(m_config, sb->nbins(), mr, q));
+            traccc::sycl::seed_finding(m_config, sb->nbins(), mr, q, qH));
     }
 
     output_type operator()(
