@@ -53,8 +53,13 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
     std::cout << "Running on device: "
               << q.get_device().get_info<::sycl::info::device::name>() << "\n";
 
+    // Creating sycl queue object
+    ::sycl::queue qH(::sycl::host_selector{});
+    std::cout << "Running Seed selecting on: "
+              << qH.get_device().get_info<::sycl::info::device::name>() << "\n";
+
     // Memory resource used by the EDM.
-    vecmem::sycl::shared_memory_resource shared_mr(&q);
+    vecmem::sycl::shared_memory_resource shared_mr(&qH);
 
     // Elapsed time
     float wall_time(0);
@@ -67,8 +72,8 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
     traccc::seeding_algorithm sa(host_mr);
     traccc::track_params_estimation tp(host_mr);
 
-    traccc::sycl::seeding_algorithm sa_sycl(shared_mr, &q);
-    traccc::sycl::track_params_estimation tp_sycl(shared_mr, &q);
+    traccc::sycl::seeding_algorithm sa_sycl(shared_mr, &q, &qH);
+    traccc::sycl::track_params_estimation tp_sycl(shared_mr, &qH);
 
     /*time*/ auto start_wall_time = std::chrono::system_clock::now();
 
