@@ -48,7 +48,7 @@ class seeding_algorithm
         m_grid_config.cotThetaMax = m_config.cotThetaMax;
 
         sb = std::make_shared<traccc::sycl::spacepoint_binning>(
-            traccc::sycl::spacepoint_binning(m_config, m_grid_config, mr, qH));
+            traccc::sycl::spacepoint_binning(m_config, m_grid_config, mr, q));
         sf = std::make_shared<traccc::sycl::seed_finding>(
             traccc::sycl::seed_finding(m_config, sb->nbins(), mr, q, qH));
     }
