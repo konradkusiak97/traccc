@@ -83,7 +83,7 @@ struct seed_finding : public algorithm<host_seed_collection(
         // doublet counting
         traccc::sycl::doublet_counting(
             m_seedfinder_config, const_cast<sp_grid&>(g2),
-            doublet_counter_container, m_mr.get(), m_q);
+            doublet_counter_container, m_mr.get(), m_qH);
 
         // resize the doublet container with the number of doublets
         for (size_t i = 0; i < g2.nbins(); ++i) {
@@ -97,7 +97,7 @@ struct seed_finding : public algorithm<host_seed_collection(
         traccc::sycl::doublet_finding(
             m_seedfinder_config, const_cast<sp_grid&>(g2),
             doublet_counter_container, mid_bot_container, mid_top_container,
-            m_mr.get(), m_qH);
+            m_mr.get(), m_q);
 
         // resize the triplet_counter container with the number of doublets
         for (size_t i = 0; i < g2.nbins(); ++i) {
@@ -109,7 +109,7 @@ struct seed_finding : public algorithm<host_seed_collection(
         traccc::sycl::triplet_counting(
             m_seedfinder_config, const_cast<sp_grid&>(g2),
             doublet_counter_container, mid_bot_container, mid_top_container,
-            triplet_counter_container, m_mr.get(), m_qH);
+            triplet_counter_container, m_mr.get(), m_q);
 
         // resize the triplet container with the number of triplets
         for (size_t i = 0; i < g2.nbins(); ++i) {
@@ -121,14 +121,14 @@ struct seed_finding : public algorithm<host_seed_collection(
         traccc::sycl::triplet_finding(
             m_seedfinder_config, m_seedfilter_config, const_cast<sp_grid&>(g2),
             doublet_counter_container, mid_bot_container, mid_top_container,
-            triplet_counter_container, triplet_container, m_mr.get(), m_qH);
+            triplet_counter_container, triplet_container, m_mr.get(), m_q);
 
         // weight updating
         traccc::sycl::weight_updating(
             m_seedfilter_config, const_cast<sp_grid&>(g2),
-            triplet_counter_container, triplet_container, m_mr.get(), m_qH);
+            triplet_counter_container, triplet_container, m_mr.get(), m_q);
 
-        vecmem::sycl::copy copy;
+        vecmem::sycl::copy copy(m_q);
         vecmem::data::vector_buffer<seed> seed_buffer(
             triplet_container.total_size(), 0, m_mr.get());
         copy.setup(seed_buffer);
@@ -139,7 +139,7 @@ struct seed_finding : public algorithm<host_seed_collection(
             const_cast<host_spacepoint_container&>(spacepoints),
             const_cast<sp_grid&>(g2), doublet_counter_container,
             triplet_counter_container, triplet_container, seed_buffer,
-            m_mr.get(), m_qH);
+            m_mr.get(), m_q);
 
         copy(seed_buffer, seed_collection);
 
