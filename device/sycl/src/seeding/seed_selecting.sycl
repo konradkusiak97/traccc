@@ -87,10 +87,8 @@ class SeedSelect {
             triplet_device.get_headers().at(bin_idx).n_triplets;
         auto triplets_per_bin = triplet_device.get_items().at(bin_idx);
 
-        auto triplets_per_spM = m_localMem.get_pointer();
+        auto triplets_per_spM = m_localMem;
      
-        if (item_idx < num_compat_spM_per_bin) {
-
         // middle spacepoint index
         auto& spM_loc = doublet_counter_per_bin[item_idx].spM;
         auto& spM_idx = spM_loc.sp_idx;
@@ -106,7 +104,6 @@ class SeedSelect {
 
         // iterate over the triplets in the bin
         for (unsigned int i = 0; i < num_triplets_per_bin; ++i) {
-            item.barrier();
             auto& aTriplet = triplets_per_bin[i];
             auto& spB_loc = aTriplet.sp1;
             auto& spT_loc = aTriplet.sp3;
@@ -134,12 +131,12 @@ class SeedSelect {
                     int end_idx = stride + m_filter_config.max_triplets_per_spM;
 
                     int min_index =
-                        std::min_element(triplets_per_spM + begin_idx,
-                                         triplets_per_spM + end_idx,
+                        std::min_element(triplets_per_spM.begin() + begin_idx,
+                                         triplets_per_spM.begin() + end_idx,
                                          [&](triplet& lhs, triplet& rhs) {
                                              return lhs.weight < rhs.weight;
                                          }) -
-                        triplets_per_spM;
+                        triplets_per_spM.begin();
 
                     auto& min_weight = triplets_per_spM[min_index].weight;
 
@@ -157,7 +154,7 @@ class SeedSelect {
         }
         // sort the triplets per spM
         insertionSort(
-            triplets_per_spM + stride, n_triplets_per_spM,
+            triplets_per_spM.begin() + stride, n_triplets_per_spM,
             [&](triplet& lhs, triplet& rhs) {
                 if (lhs.weight != rhs.weight) {
                     return lhs.weight > rhs.weight;
@@ -190,7 +187,6 @@ class SeedSelect {
             });
         // the number of good seed per compatible middle spacepoint
         unsigned int n_seeds_per_spM = 0;
-
         // iterate over the good triplets for final selection of seeds
         for (unsigned int i = stride; i < stride + n_triplets_per_spM; ++i) {
             auto& aTriplet = triplets_per_spM[i];
@@ -219,9 +215,7 @@ class SeedSelect {
             }
         }
     }
-    }
     
-
     private:
     const seedfilter_config m_filter_config;
     spacepoint_container_view m_spacepoints_view;
