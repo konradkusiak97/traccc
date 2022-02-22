@@ -88,9 +88,8 @@ class SeedSelect {
         auto triplets_per_bin = triplet_device.get_items().at(bin_idx);
 
         auto triplets_per_spM = m_localMem.get_pointer();
-
-        if (item_idx >= num_compat_spM_per_bin)
-            return;
+     
+        if (item_idx < num_compat_spM_per_bin) {
 
         // middle spacepoint index
         auto& spM_loc = doublet_counter_per_bin[item_idx].spM;
@@ -107,6 +106,7 @@ class SeedSelect {
 
         // iterate over the triplets in the bin
         for (unsigned int i = 0; i < num_triplets_per_bin; ++i) {
+            item.barrier();
             auto& aTriplet = triplets_per_bin[i];
             auto& spB_loc = aTriplet.sp1;
             auto& spT_loc = aTriplet.sp3;
@@ -219,6 +219,8 @@ class SeedSelect {
             }
         }
     }
+    }
+    
 
     private:
     const seedfilter_config m_filter_config;
