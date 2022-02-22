@@ -49,7 +49,7 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
     vecmem::host_memory_resource host_mr;
 
     // Creating sycl queue object
-    ::sycl::queue q(::sycl::host_selector{});
+    ::sycl::queue q(::sycl::gpu_selector{});
     std::cout << "Running on device: "
               << q.get_device().get_info<::sycl::info::device::name>() << "\n";
 
@@ -59,7 +59,7 @@ int seq_run(const std::string& detector_file, const std::string& hits_dir,
               << qH.get_device().get_info<::sycl::info::device::name>() << "\n";
 
     // Memory resource used by the EDM.
-    vecmem::sycl::shared_memory_resource shared_mr(&qH);
+    vecmem::sycl::shared_memory_resource shared_mr(&q);
 
     // Elapsed time
     float wall_time(0);

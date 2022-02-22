@@ -99,9 +99,7 @@ class TripletFind {
         num_triplets_per_thread[workItemIdx] = 0;
 
         // prevent the tail threads referring the null triplet counter
-        if (item_idx >= num_compat_mb_per_bin) {
-            return;
-        }
+        if (item_idx < num_compat_mb_per_bin) {
 
         // middle-bot doublet
         const auto& mid_bot_doublet =
@@ -161,9 +159,8 @@ class TripletFind {
                 ::sycl::min(mid_top_doublets_per_bin.size(), mt_end_idx);
         }
 
-        if (mt_start_idx >= mid_top_doublets_per_bin.size()) {
-            return;
-        }
+        if (mt_start_idx < mid_top_doublets_per_bin.size()) {
+        
 
         // number of triplets per thread (or per middle-bot doublet)
         unsigned int n_triplets_per_mb = 0;
@@ -209,6 +206,8 @@ class TripletFind {
                 n_triplets_per_mb++;
             }
         }
+        }
+        }
         // Calculate the number of triplets per "block" with reducing sum
         // technique
         // ::sycl::group_barrier(workGroup);
@@ -217,7 +216,7 @@ class TripletFind {
         // sycl_helper::reduceInShared(num_triplets_per_thread, item);
 
         // Sycl group reduction algorithm - doesn't always work correctly
-        // num_triplets_per_thread[0] = ::sycl::reduce_over_group(workGroup,
+        // num_triplets_per_thread[0] = ::sycl::reduce_over_group(item.get_group(),
         // num_triplets_per_thread[workItemIdx], ::sycl::plus<>());
 
         // Calculate the number of triplets per bin by atomic-adding the number
@@ -233,6 +232,7 @@ class TripletFind {
             obj.fetch_add(num_triplets_per_thread[0]);
         }
     }
+    
 
     private:
     const seedfinder_config m_config;
@@ -268,7 +268,7 @@ void triplet_finding(const seedfinder_config& config,
     // -- localSize
     // The dimension of workGroup (block) is the integer multiple of WARP_SIZE
     // (=32)
-    unsigned int localSize = 8;
+    unsigned int localSize = 64;
     // Calculate the global number of threads to run in kernel
     unsigned int num_groups = 0;
     for (unsigned int i = 0; i < internal_sp.nbins(); ++i) {

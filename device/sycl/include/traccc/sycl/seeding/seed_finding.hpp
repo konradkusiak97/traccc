@@ -83,7 +83,7 @@ struct seed_finding : public algorithm<host_seed_collection(
         // doublet counting
         traccc::sycl::doublet_counting(
             m_seedfinder_config, const_cast<sp_grid&>(g2),
-            doublet_counter_container, m_mr.get(), m_qH);
+            doublet_counter_container, m_mr.get(), m_q);
 
         // resize the doublet container with the number of doublets
         for (size_t i = 0; i < g2.nbins(); ++i) {
@@ -139,7 +139,7 @@ struct seed_finding : public algorithm<host_seed_collection(
             const_cast<host_spacepoint_container&>(spacepoints),
             const_cast<sp_grid&>(g2), doublet_counter_container,
             triplet_counter_container, triplet_container, seed_buffer,
-            m_mr.get(), m_q);
+            m_mr.get(), m_qH);
 
         copy(seed_buffer, seed_collection);
 
