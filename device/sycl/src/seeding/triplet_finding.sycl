@@ -211,8 +211,6 @@ class TripletFind {
                 }
             }
         }
-        }
-        }
         // Calculate the number of triplets per "block" with reducing sum
         // technique
         // ::sycl::group_barrier(workGroup);
@@ -233,7 +231,7 @@ class TripletFind {
                 resultTriplets += num_triplets_per_thread[i];
             }
             num_triplets_per_thread[0] = resultTriplets;
-            vecmem::atomic<uint32_t> obj(&num_triplets_per_bin);
+            sycl_atomic<uint32_t> obj(num_triplets_per_bin);
             obj.fetch_add(num_triplets_per_thread[0]);
         }
     }

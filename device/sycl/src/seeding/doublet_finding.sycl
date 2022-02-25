@@ -118,7 +118,7 @@ class DupletFind {
                 auto neigh_bin = static_cast<unsigned int>(
                     i_p + i_z * internal_sp_device.axis_p0().bins());
 
-                // for (auto& neigh_isp: neighbors){
+                // for (auto& neigh_isp: neighbors)
                 for (unsigned int spB_idx = 0; spB_idx < neighbors.size();
                      spB_idx++) {
                     const auto& neigh_isp = neighbors[spB_idx];
@@ -195,10 +195,9 @@ class DupletFind {
                 }
             }
         }
-    } 
         // Calculate the number doublets per "block" with reducing sum technique
         // ::sycl::group_barrier(workGroup);
-    item.barrier();
+        item.barrier();
         // Warp shuffle reduction algorithm
         // sycl_helper::reduceInShared(num_mid_bot_doublets_per_thread, item);
         // sycl_helper::reduceInShared(num_mid_top_doublets_per_thread, item);
@@ -228,10 +227,10 @@ class DupletFind {
             }
             num_mid_top_doublets_per_thread[0] = resultTop;
 
-            vecmem::atomic<uint32_t> objB(&num_mid_bot_doublets_per_bin);
+            sycl_atomic<uint32_t> objB(num_mid_bot_doublets_per_bin);
             objB.fetch_add(num_mid_bot_doublets_per_thread[0]);
 
-            vecmem::atomic<uint32_t> objT(&num_mid_top_doublets_per_bin);
+            sycl_atomic<uint32_t> objT(num_mid_top_doublets_per_bin);
             objT.fetch_add(num_mid_top_doublets_per_thread[0]);
         }
     }

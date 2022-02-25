@@ -23,6 +23,8 @@ namespace sycl {
 template <typename T>
 using local_accessor = ::sycl::accessor<T, 1, ::sycl::access::mode::read_write,
                                         ::sycl::access::target::local>;
+template <typename T>
+using sycl_atomic = ::sycl::ext::oneapi::atomic_ref<T, ::sycl::memory_order::seq_cst, ::sycl::memory_scope::system, ::sycl::access::address_space::global_space>;
 
 // Some useful helper funcitons
 struct sycl_helper {
