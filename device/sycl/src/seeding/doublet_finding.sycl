@@ -214,7 +214,6 @@ class DupletFind {
         // Calculate the number doublets per bin by atomic-adding the number of
         // doublets per block
         if (workItemIdx == 0) {
-
             // For loop reduction
 
             uint32_t resultBottom = 0;

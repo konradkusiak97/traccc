@@ -7,13 +7,15 @@
 
 #include "traccc/sycl/seeding/seed_selecting.hpp"
 
+#include "vecmem/utils/sycl/copy.hpp"
+
 namespace traccc {
 namespace sycl {
 
 // Sorting algorithm for sorting seeds in the local memory
 template <typename Comparator>
 static void insertionSort(
-    ::sycl::multi_ptr<triplet, ::sycl::access::address_space::local_space> arr,
+    triplet* arr,
     int n, Comparator comp) {
     int j = 0;
     triplet key = arr[0];
@@ -37,8 +39,8 @@ class SeedSelect {
                doublet_counter_container_view doublet_counter_view,
                triplet_counter_container_view triplet_counter_view,
                triplet_container_view triplet_view,
-               vecmem::data::vector_buffer<seed>& seed_buffer,
-               local_accessor<triplet> localMem)
+               vecmem::data::vector_view<seed>& seed_buffer,
+               vecmem::data::jagged_vector_view<triplet> localMem)
         : m_filter_config(filter_config),
           m_spacepoints_view(spacepoints_view),
           m_internal_sp_view(internal_sp_view),
@@ -87,8 +89,12 @@ class SeedSelect {
             triplet_device.get_headers().at(bin_idx).n_triplets;
         auto triplets_per_bin = triplet_device.get_items().at(bin_idx);
 
-        auto triplets_per_spM = m_localMem;
-     
+        // prevent overflow
+        if (item_idx >= num_compat_spM_per_bin) {
+            return;
+        }
+        vecmem::jagged_device_vector<triplet> d_triplets_per_spM(m_localMem);
+        auto triplets_per_spM = d_triplets_per_spM[item.get_group(0)];
         // middle spacepoint index
         auto& spM_loc = doublet_counter_per_bin[item_idx].spM;
         auto& spM_idx = spM_loc.sp_idx;
@@ -100,7 +106,7 @@ class SeedSelect {
 
         // the start index of triplets_per_spM
         unsigned int stride =
-            workItemIdx * m_filter_config.max_triplets_per_spM;
+             workItemIdx * m_filter_config.max_triplets_per_spM;
 
         // iterate over the triplets in the bin
         for (unsigned int i = 0; i < num_triplets_per_bin; ++i) {
@@ -131,12 +137,12 @@ class SeedSelect {
                     int end_idx = stride + m_filter_config.max_triplets_per_spM;
 
                     int min_index =
-                        std::min_element(triplets_per_spM.begin() + begin_idx,
-                                         triplets_per_spM.begin() + end_idx,
+                        std::min_element(triplets_per_spM.data() + begin_idx,
+                                         triplets_per_spM.data() + end_idx,
                                          [&](triplet& lhs, triplet& rhs) {
                                              return lhs.weight < rhs.weight;
                                          }) -
-                        triplets_per_spM.begin();
+                        triplets_per_spM.data();
 
                     auto& min_weight = triplets_per_spM[min_index].weight;
 
@@ -154,7 +160,7 @@ class SeedSelect {
         }
         // sort the triplets per spM
         insertionSort(
-            triplets_per_spM.begin() + stride, n_triplets_per_spM,
+            triplets_per_spM.data() + stride, n_triplets_per_spM,
             [&](triplet& lhs, triplet& rhs) {
                 if (lhs.weight != rhs.weight) {
                     return lhs.weight > rhs.weight;
@@ -224,7 +230,7 @@ class SeedSelect {
     triplet_counter_container_view m_triplet_counter_view;
     triplet_container_view m_triplet_view;
     vecmem::data::vector_view<seed> m_seed_view;
-    local_accessor<triplet> m_localMem;
+    vecmem::data::jagged_vector_view<triplet> m_localMem;
 };
 
 void seed_selecting(const seedfilter_config& filter_config,
@@ -261,17 +267,18 @@ void seed_selecting(const seedfilter_config& filter_config,
 
     // 1 dim ND Range for the kernel
     auto seedSelectNdRange = ::sycl::nd_range<1>{globalSize, localSize};
-
+    vecmem::data::jagged_vector_buffer<triplet> localMem(std::vector<std::size_t>(num_groups, localSize*filter_config.max_triplets_per_spM), 
+                                                        std::vector<std::size_t>(num_groups,localSize*filter_config.max_triplets_per_spM), resource); 
     q->submit([&](::sycl::handler& h) {
          // local memory initialization (equivalent to shared memory in CUDA)
-         auto localMem = local_accessor<triplet>(
-             ::sycl::range<1>(localSize * filter_config.max_triplets_per_spM),
-             h);
+        //  auto localMem = local_accessor<triplet>(
+        //      ::sycl::range<1>(localSize * filter_config.max_triplets_per_spM),
+        //      h);
 
          SeedSelect kernel(filter_config, spacepoints_view, internal_sp_view,
                            doublet_counter_container_view,
                            triplet_counter_container_view,
-                           triplet_container_view, seed_buffer, localMem);
+                           triplet_container_view, seed_buffer, vecmem::get_data(localMem));
 
          h.parallel_for<class seed_select_kernel>(seedSelectNdRange, kernel);
      }).wait_and_throw();
