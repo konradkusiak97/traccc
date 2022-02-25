@@ -139,7 +139,7 @@ struct seed_finding : public algorithm<host_seed_collection(
             const_cast<host_spacepoint_container&>(spacepoints),
             const_cast<sp_grid&>(g2), doublet_counter_container,
             triplet_counter_container, triplet_container, seed_buffer,
-            m_mr.get(), m_qH);
+            m_mr.get(), m_q);
 
         copy(seed_buffer, seed_collection);
 
