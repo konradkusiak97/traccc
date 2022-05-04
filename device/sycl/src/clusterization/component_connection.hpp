@@ -23,8 +23,8 @@ namespace traccc::sycl {
 ///
 void component_connection(
     cluster_container_view clusters_view,
+    vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
     const host_cell_container& cells_per_event,
-    vecmem::data::vector_view<unsigned int> clusters_count_view,
     vecmem::memory_resource& resource, queue_wrapper queue);
 
 }  // namespace traccc::sycl
