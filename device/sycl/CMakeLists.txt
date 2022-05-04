@@ -21,9 +21,7 @@ traccc_add_library( traccc_sycl sycl TYPE SHARED
   "include/traccc/sycl/seeding/track_params_estimation.hpp"
   "include/traccc/sycl/utils/queue_wrapper.hpp"
   # implementation files
-  "src/clusterization/clusterization_algorithm.cpp"
-  "src/clusterization/clusters_sum.hpp"
-  "src/clusterization/clusters_sum.sycl"
+  "src/clusterization/cluster_finding.cpp"
   "src/clusterization/cluster_counting.hpp"
   "src/clusterization/cluster_counting.sycl"
   "src/clusterization/measurement_creation.sycl"
