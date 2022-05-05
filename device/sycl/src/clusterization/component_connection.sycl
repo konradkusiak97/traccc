@@ -35,17 +35,10 @@ void component_connection(
     auto cells_data = get_data(cells_per_event, &resource);
     cell_container_types::const_view cells_view(cells_data);
 
-    // Atomic count of all clusters 
-    auto total_clusters = vecmem::make_unique_alloc<unsigned int>(resource);
-    *total_clusters = 0;
-
-    // Get the raw pointer of the total clusters
-    auto total_clusters_ptr = total_clusters.get();
-
     details::get_queue(queue)
         .parallel_for<class ComponentConnection>(
             ndrange,
-            [cells_view, total_clusters_ptr, clusters_view,
+            [cells_view, cluster_prefix_sum_view, clusters_view,
              sparse_ccl_indices_view](::sycl::nd_item<1> item) {
                 // Get the global index
                 auto idx = item.get_global_linear_id();
@@ -64,32 +57,38 @@ void component_connection(
 
                 // Vectors used for cluster indices found by sparse CCL
                 vecmem::jagged_device_vector<unsigned int>
-                    device_sparse_ccl_indices(sparse_ccl_indices_view);
-                const auto& cluster_indices =
-                    device_sparse_ccl_indices.at(id_x);
+                    device_cluster_indices(cluster_indices_view);
+                auto cluster_indices = device_cluster_indices.at(idx);
 
-                // Number of clusters found for this module
-                const auto num_clusters = cluster_indices.back();
+                // Run the sparse_ccl algorithm
+                detail::sparse_ccl(cells, cluster_indices, num_clusters);
 
-                // Get the prefix sum for this id_x
-                vecmem::device_vector<std::size_t> device_cluster_prefix_sum(
-                    cluster_prefix_sum_view);
-                const auto prefix_sum = device_cluster_prefix_sum[id_x];
+                // Add the number of found clusers per module to the count
+                // vector
+                vecmem::device_vector<unsigned int> clusters_count_device(
+                    clusters_count_view);
+                clusters_count_device[idx] += num_clusters;
+
+                // Create cluster id - same for all clusters in this module
+                cluster_id cl_id{};
+                cl_id.module = module.module;
+                cl_id.placement = module.placement;
+                cl_id.module_idx = idx;
+                cl_id.pixel = module.pixel;
+
+                vecmem::device_vector<std::size_t> device_cluster_prefix_sum(cluster_prefix_sum_view);
+                auto prefix_sum = device_cluster_prefix_sum[idx] - num_clusters;
 
                 // Push back the cells to the correct item vector
-                unsigned int cindex = cluster_indices[id_y] - 1;
-                if (cindex < num_clusters) {
-                    // Create cluster id - same for all clusters in this module
-                    cluster_id cl_id{};
-                    cl_id.module = module.module;
-                    cl_id.placement = module.placement;
-                    cl_id.module_idx = id_x;
-                    cl_id.pixel = module.pixel;
-
-                    // Push back the header and items
-                    clusters_device[prefix_sum + cindex].header = cl_id;
-                    clusters_device[prefix_sum + cindex].items.push_back(
-                        cells[id_y]);
+                unsigned int cindex;
+                for (std::size_t j = 0; j < cells.size(); ++j) {
+                    cindex = cluster_indices[j] - 1;
+                    if (cindex < num_clusters) {
+                        clusters_device[prefix_sum + cindex].header =
+                            cl_id;
+                        clusters_device[prefix_sum + cindex]
+                            .items.push_back(cells[j]);
+                    }
                 }
             })
         .wait_and_throw();
