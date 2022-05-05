@@ -14,7 +14,7 @@
 #include "cluster_counting.hpp"
 
 // Vecmem include(s).
-#include <vecmem/utils/sycl/copy.hpp>
+#include <vecmem/utils/copy.hpp>
 
 namespace traccc::sycl {
 
@@ -29,7 +29,7 @@ host_measurement_container cluster_finding::operator()(
     unsigned int num_modules = cells_per_event.size();
 
     // Vecmem copy object for moving the data between host and device
-    vecmem::sycl::copy copy{m_queue.queue()};
+    vecmem::copy copy;
 
     // Get the sizes of the cells in each module
     std::vector<std::size_t> cell_sizes(num_modules, 0);
@@ -43,7 +43,7 @@ host_measurement_container cluster_finding::operator()(
     copy.setup(sparse_ccl_indices);
 
     // Vector for counts of clusters per each module
-    vecmem::vector<unsigned int> cluster_sizes(num_modules, 1, &m_mr.get());
+    vecmem::vector<unsigned int> cluster_sizes(num_modules, 0, &m_mr.get());
 
     // Number of all clusters that will be found
     auto cluster_sum = vecmem::make_unique_alloc<unsigned int>(m_mr.get());
