@@ -28,17 +28,16 @@ class clusterization_algorithm
     ///
     /// @param mr is the memory resource
     /// @param queue is the sycl queue for kernel invocation
-    clusterization_algorithm(vecmem::memory_resource& mr,
-                            queue_wrapper queue);
+    clusterization_algorithm(vecmem::memory_resource& mr, queue_wrapper queue);
 
     /// Callable operator for clusterization algorithm
     ///
     /// @param cells_per_event is a container with cell modules as headers
-    /// and cells as the items 
+    /// and cells as the items
     /// @return a measurement container with cell modules as headers and
     /// measurements as items
     output_type operator()(
-        const host_cell_container& cells_per_event) const override; 
+        const host_cell_container& cells_per_event) const override;
 
     private:
     std::reference_wrapper<vecmem::memory_resource> m_mr;
