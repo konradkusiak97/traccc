@@ -14,7 +14,6 @@
 // Vecmem include(s).
 #include <vecmem/containers/data/jagged_vector_view.hpp>
 #include <vecmem/containers/data/vector_view.hpp>
-#include <vecmem/containers/data/jagged_vector_view.hpp>
 #include <vecmem/memory/memory_resource.hpp>
 
 namespace traccc::sycl {
