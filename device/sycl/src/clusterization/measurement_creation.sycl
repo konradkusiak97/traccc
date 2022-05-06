@@ -20,12 +20,9 @@ void measurement_creation(measurement_container_view measurements_view,
                           cluster_container_types::const_view clusters_view,
                           queue_wrapper queue) {
 
-    // The kernel execution range
-    auto n_clusters = clusters_view.headers.size();
-
     // Calculate the execution NDrange for the kernel
     auto workGroupSize = 64;
-    auto num = (n_clusters + workGroupSize - 1) / workGroupSize;
+    auto num = (N + workGroupSize - 1) / workGroupSize;
     auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * workGroupSize),
                                        ::sycl::range<1>(workGroupSize)};
     // Run the kernel
