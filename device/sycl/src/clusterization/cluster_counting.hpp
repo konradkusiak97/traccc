@@ -25,7 +25,7 @@ void cluster_counting(
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
     vecmem::data::vector_view<std::size_t> cluster_sizes_view,
     vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
-    vecmem::data::vector_view<std::size_t> clusters_per_module_view,
+    const std::size_t& cells_max,
     vecmem::memory_resource& resource, queue_wrapper queue);
 
 }  // namespace traccc::sycl

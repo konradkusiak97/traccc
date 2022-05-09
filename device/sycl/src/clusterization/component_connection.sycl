@@ -21,16 +21,18 @@ void component_connection(
     const host_cell_container& cells_per_event,
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
     vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
+    const std::size_t& cells_max,
     vecmem::memory_resource& resource, queue_wrapper queue) {
 
     // Execution size of the algorithm
     std::size_t N = cells_per_event.size();
 
     // Calculate the execution NDrange for the kernel
-    auto workGroupSize = 64;
+    auto workGroupSize = 32;
     auto num = (N + workGroupSize - 1) / workGroupSize;
-    auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * workGroupSize),
-                                       ::sycl::range<1>(workGroupSize)};
+    auto num2 = (cells_max + workGroupSize - 1) / workGroupSize; 
+    auto ndrange = ::sycl::nd_range<2>{::sycl::range<2>(num*workGroupSize,num2*workGroupSize),
+                                       ::sycl::range<2>(workGroupSize,workGroupSize)};
 
     // Get the view of the cells container
     auto cells_data = get_data(cells_per_event, &resource);
@@ -40,9 +42,11 @@ void component_connection(
         .parallel_for<class ComponentConnection>(
             ndrange,
             [cells_view, cluster_prefix_sum_view, clusters_view,
-             sparse_ccl_indices_view](::sycl::nd_item<1> item) {
+             sparse_ccl_indices_view](::sycl::nd_item<2> item) {
                 // Get the global index
-                auto idx = item.get_global_linear_id();
+                // auto idx = item.get_global_linear_id();
+                auto idx = item.get_global_id(0);
+                auto id_y = item.get_global_id(1);
 
                 // Initialize the data on the device
                 device_cell_const_container cells_device(cells_view);
@@ -53,38 +57,46 @@ void component_connection(
                     return;
 
                 // Get the cells from the current module
-                const auto& cells = cells_device.at(idx).items;
-                const auto& module = cells_device.at(idx).header;
+                const auto cells = cells_device.at(idx).items;
+                const auto module = cells_device.at(idx).header;
 
                 // Vectors used for cluster indices found by sparse CCL
                 vecmem::jagged_device_vector<unsigned int>
                     device_sparse_ccl_indices(sparse_ccl_indices_view);
-                const auto& cluster_indices = device_sparse_ccl_indices.at(idx);
+                const auto cluster_indices = device_sparse_ccl_indices.at(idx);
 
                 // Number of clusters found for this module
-                const auto& num_clusters = cluster_indices.back();
-
-                // Create cluster id - same for all clusters in this module
-                cluster_id cl_id{};
-                cl_id.module = module.module;
-                cl_id.placement = module.placement;
-                cl_id.module_idx = idx;
-                cl_id.pixel = module.pixel;
+                const auto num_clusters = cluster_indices.back();
 
                 vecmem::device_vector<std::size_t> device_cluster_prefix_sum(
                     cluster_prefix_sum_view);
                 const auto prefix_sum = device_cluster_prefix_sum[idx];
 
                 // Push back the cells to the correct item vector
+                // for (std::size_t j = 0; j < cells.size(); ++j) {
+                //     cindex = cluster_indices[j] - 1;
+                //     if (cindex < num_clusters) {
+                //         clusters_device[prefix_sum + cindex].header = cl_id;
+                //         clusters_device[prefix_sum + cindex].items.push_back(
+                //             cells[j]);
+                //     }
+                // }
                 unsigned int cindex;
-                for (std::size_t j = 0; j < cells.size(); ++j) {
-                    cindex = cluster_indices[j] - 1;
+                if (id_y < cells.size()) {
+                    cindex = cluster_indices[id_y] - 1;
                     if (cindex < num_clusters) {
+                        // Create cluster id - same for all clusters in this module
+                        cluster_id cl_id{};
+                        cl_id.module = module.module;
+                        cl_id.placement = module.placement;
+                        cl_id.module_idx = idx;
+                        cl_id.pixel = module.pixel;
                         clusters_device[prefix_sum + cindex].header = cl_id;
                         clusters_device[prefix_sum + cindex].items.push_back(
-                            cells[j]);
+                            cells[id_y]);
                     }
                 }
+
             })
         .wait_and_throw();
 }
