@@ -35,11 +35,13 @@ host_measurement_container clusterization_algorithm::operator()(
     vecmem::copy copy;
 
     // Get the sizes of the cells in each module
+    // and the maximum size of cells in module
     std::size_t cells_max = 0;
     std::vector<std::size_t> cell_sizes(num_modules, 0);
     for (std::size_t j = 0; j < num_modules; ++j) {
         cell_sizes[j] = cells_per_event.get_items().at(j).size() + 1;
-        if (cell_sizes[j] - 1 > cells_max) cells_max = cell_sizes[j] - 1;
+        if (cell_sizes[j] - 1 > cells_max) 
+            cells_max = cell_sizes[j] - 1;
     }
 
     // Helper container for sparse CCL calculations
@@ -66,7 +68,7 @@ host_measurement_container clusterization_algorithm::operator()(
 
     // Vector of the exact cluster sizes, will be filled in cluster_counting
     // kernel
-    vecmem::vector<std::size_t> cluster_sizes(*total_clusters, 0, &m_mr.get());
+    vecmem::vector<unsigned int> cluster_sizes(*total_clusters, 0, &m_mr.get());
     traccc::sycl::cluster_counting(
         cells_per_event, sparse_ccl_indices, vecmem::get_data(cluster_sizes),
         cluster_prefix_sum, cells_max, m_mr.get(), m_queue);

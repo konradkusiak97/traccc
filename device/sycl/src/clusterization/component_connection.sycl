@@ -73,24 +73,19 @@ void component_connection(
                 const auto prefix_sum = device_cluster_prefix_sum[idx];
 
                 // Push back the cells to the correct item vector
-                // for (std::size_t j = 0; j < cells.size(); ++j) {
-                //     cindex = cluster_indices[j] - 1;
-                //     if (cindex < num_clusters) {
-                //         clusters_device[prefix_sum + cindex].header = cl_id;
-                //         clusters_device[prefix_sum + cindex].items.push_back(
-                //             cells[j]);
-                //     }
-                // }
                 unsigned int cindex;
                 if (id_y < cells.size()) {
                     cindex = cluster_indices[id_y] - 1;
                     if (cindex < num_clusters) {
+
                         // Create cluster id - same for all clusters in this module
                         cluster_id cl_id{};
                         cl_id.module = module.module;
                         cl_id.placement = module.placement;
                         cl_id.module_idx = idx;
                         cl_id.pixel = module.pixel;
+
+                        // Push back the header and items
                         clusters_device[prefix_sum + cindex].header = cl_id;
                         clusters_device[prefix_sum + cindex].items.push_back(
                             cells[id_y]);
