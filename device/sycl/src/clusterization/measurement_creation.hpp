@@ -18,6 +18,6 @@ namespace traccc::sycl {
 ///
 void measurement_creation(measurement_container_view measurements_view,
                           cluster_container_view clusters_view,
-                          const std::size_t& N, queue_wrapper queue);
+                          const std::size_t& n_clusters, queue_wrapper queue);
 
 }  // namespace traccc::sycl

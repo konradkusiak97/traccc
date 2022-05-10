@@ -18,11 +18,11 @@ namespace traccc::sycl {
 
 void measurement_creation(measurement_container_view measurements_view,
                           cluster_container_view clusters_view,
-                          const std::size_t &N, queue_wrapper queue) {
+                          const std::size_t &n_clusters, queue_wrapper queue) {
 
     // Calculate the execution NDrange for the kernel
     auto workGroupSize = 64;
-    auto num = (N + workGroupSize - 1) / workGroupSize;
+    auto num = (n_clusters + workGroupSize - 1) / workGroupSize;
     auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * workGroupSize),
                                        ::sycl::range<1>(workGroupSize)};
     // Run the kernel
