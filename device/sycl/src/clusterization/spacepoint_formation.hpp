@@ -9,9 +9,12 @@
 
 // Project include(s).
 #include "traccc/edm/cell.hpp"
-#include "traccc/edm/cluster.hpp"
 #include "traccc/edm/measurement.hpp"
 #include "traccc/edm/spacepoint.hpp"
+
+// Vecmem include(s).
+#include <vecmem/containers/data/vector_view.hpp>
+#include <vecmem/memory/memory_resource.hpp>
 
 namespace traccc::sycl {
 

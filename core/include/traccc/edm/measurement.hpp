@@ -23,6 +23,7 @@ namespace traccc {
 struct measurement {
     point2 local = {0., 0.};
     variance2 variance = {0., 0.};
+    std::size_t module_idx = 0;
 
     TRACCC_HOST_DEVICE
     static inline measurement invalid_value() {
