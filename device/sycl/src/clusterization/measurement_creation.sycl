@@ -16,9 +16,9 @@
 
 namespace traccc::sycl {
 
-void measurement_creation(measurement_container_view measurements_view,
-                          cluster_container_types::const_view clusters_view,
-                          queue_wrapper queue) {
+void measurement_creation(
+    vecmem::data::vector_view<measurement> measurements_view,
+    cluster_container_types::const_view clusters_view, queue_wrapper queue) {
 
     // The kernel execution range
     auto n_clusters = clusters_view.headers.size();
@@ -39,7 +39,7 @@ void measurement_creation(measurement_container_view measurements_view,
                 // Initialize device vectors
                 const cluster_container_types::const_device clusters_device(
                     clusters_view);
-                device_measurement_container measurement_device(
+                device_measurement_collection measurements_device(
                     measurements_view);
 
                 // Ignore if idx is out of range
@@ -85,8 +85,9 @@ void measurement_creation(measurement_container_view measurements_view,
                     // plus pitch^2 / 12
                     m.variance = m.variance + point2{pitch[0] * pitch[0] / 12,
                                                      pitch[1] * pitch[1] / 12};
+                    m.module_idx = module_idx;
                     // @todo add variance estimation
-                    measurement_device.get_items().at(module_idx).push_back(m);
+                    measurements_device.push_back(m);
                 }
             })
         .wait_and_throw();

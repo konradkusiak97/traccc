@@ -8,16 +8,20 @@
 #pragma once
 
 // Project include(s).
-#include "traccc/clusterization/detail/measurement_creation_helper.hpp"
+#include "traccc/edm/cell.hpp"
 #include "traccc/edm/cluster.hpp"
 #include "traccc/edm/measurement.hpp"
+#include "traccc/edm/spacepoint.hpp"
 
 namespace traccc::sycl {
 
 /// Forward decleration of measurement creation kernel
 ///
-void measurement_creation(
+void spacepoint_formation(
+    spacepoint_container_view spacepoints_view,
     vecmem::data::vector_view<measurement> measurements_view,
-    cluster_container_types::const_view clusters_view, queue_wrapper queue);
+    const cell_container_types::host& cells_per_event,
+    std::size_t n_measurements, vecmem::memory_resource& resource,
+    queue_wrapper queue);
 
 }  // namespace traccc::sycl

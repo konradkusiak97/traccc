@@ -1,0 +1,77 @@
+/** TRACCC library, part of the ACTS project (R&D line)
+ *
+ * (c) 2021-2022 CERN for the benefit of the ACTS project
+ *
+ * Mozilla Public License Version 2.0
+ */
+
+#pragma once
+
+// Spacepoint formation include(s).
+#include "traccc/sycl/clusterization/spacepoint_formation.hpp"
+
+// SYCL include(s)
+#include <CL/sycl.hpp>
+
+namespace traccc::sycl {
+
+void spacepoint_formation(
+    spacepoint_container_view spacepoints_view,
+    vecmem::data::vector_view<measurement> measurements_view,
+    const cell_container_types::host& cells_per_event,
+    std::size_t n_measurements, vecmem::memory_resource& resource,
+    queue_wrapper queue) {
+
+    // Calculate the execution NDrange for the kernel
+    auto wGroupSize = 64;
+    auto num = (n_measurements + wGroupSize - 1) / wGroupSize;
+    auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * wGroupSize),
+                                       ::sycl::range<1>(wGroupSize)};
+
+    // Get the view of the measurements collection
+    auto measurements_data = vecmem::get_data(measurements_per_event);
+    vecmem::data::vector_view<measurement> measurements_view(measurement_data);
+
+    // Get the view of the cells container
+    auto cells_data = get_data(cells_per_event, &resource);
+    cell_container_types::const_view cells_view(cells_data);
+
+    details::get_queue(m_queue)
+        .submit([&ndrange,
+                 &measurements_view & cells_view](::sycl::handler& h) {
+            h.parallel_for<class SpacepointFormation>(
+                ndrange, [=](::sycl::nd_item<1> item) {
+
+                    // Get the global idx
+                    auto idx = item.get_global_linear_id();
+                    device_measurement_collection measurements_device(
+                        measurements_view);
+
+                    // Ignore if idx is out of range
+                    if (idx >= measurements_device.size())
+                        return;
+
+                    // current module idx
+                    const auto module_idx = measurements_device[idx].module_idx;
+
+                    // current cell module
+                    cell_container_types::const_device cells_device(cells_view);
+                    const auto& module = cells_device.at(module_idx).header;
+
+                    // Get the current measurement
+                    const auto& m = measurements_device[idx];
+
+                    // Form a spacepoint based on this measurement
+                    point3 local_3d = {m.local[0], m.local[1], 0.};
+                    point3 global = module.placement.point_to_global(local_3d);
+                    spacepoint s({global, m});
+
+                    // Push the speacpoint into the container at the appropriate module idx
+                    spacepoints_device[module_idx].header = module.module;
+                    spacepoints_device[module_idx].items.push_back(s);
+                })
+        })
+        .wait_and_throw();
+}
+
+}  // namespace traccc::sycl

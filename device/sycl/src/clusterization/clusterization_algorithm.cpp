@@ -13,6 +13,7 @@
 #include "clusters_sum.hpp"
 #include "component_connection.hpp"
 #include "measurement_creation.hpp"
+#include "spacepoint_formation.hpp"
 
 // Vecmem include(s).
 #include <vecmem/utils/copy.hpp>
@@ -23,7 +24,7 @@ clusterization_algorithm::clusterization_algorithm(vecmem::memory_resource &mr,
                                                    queue_wrapper queue)
     : m_mr(mr), m_queue(queue) {}
 
-host_measurement_container clusterization_algorithm::operator()(
+host_spacepoint_container clusterization_algorithm::operator()(
     const cell_container_types::host &cells_per_event) const {
 
     // Number of modules
@@ -94,28 +95,30 @@ host_measurement_container clusterization_algorithm::operator()(
     copy(clusters_per_module, clusters_per_module_host);
 
     // Resizable buffer for the measurements
-    measurement_container_buffer measurement_buffer{
-        {num_modules, m_mr.get()},
-        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         m_mr.get()}};
-    copy.setup(measurement_buffer.items);
+    vecmem::data::vector_buffer<measurement> measurements_buffer(
+        *total_clusters, 0, m_mr.get());
+    copy.setup(measurements_buffer);
 
     // Measurement creation kernel
-    traccc::sycl::measurement_creation(measurement_buffer, clusters_buffer,
+    traccc::sycl::measurement_creation(measurements_buffer, clusters_buffer,
                                        m_queue);
 
-    // Copy the results back to the host
-    host_measurement_container measurements(&m_mr.get());
-    copy(measurement_buffer.items, measurements.get_items());
+    spacepoint_container_buffer spacepoints_buffer{
+        {num_modules, m_mr.get()},
+        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host, m_mr.get()}};
+    copy.setup(spacepoints_buffer.headers);
+    copy.setup(spacepoints_buffer.items);
 
-    // Fill the headers of measurements with cell modules
-    assert(cells_per_event.get_headers().size() ==
-           measurements.get_items().size());
-    for (const cell_module &cm : cells_per_event.get_headers()) {
-        measurements.get_headers().push_back(cm);
-    }
+    // Do the spacepoint formation
+    traccc::sycl::spacepoint_formation(spacepoints_buffer, measurements_buffer,
+                                       cells_per_event, *total_clusters,
+                                       m_mr.get(), m_queue);
 
-    return measurements;
+    host_spacepoint_container spacepoints_per_event(&m_mr.get());
+    copy(spacepoints_buffer.headers, spacepoints_per_event.get_headers());
+    copy(spacepoints_buffer.items, spacepoints_per_event.get_items());
+
+    return spacepoints_per_event;
 }
 
 }  // namespace traccc::sycl
