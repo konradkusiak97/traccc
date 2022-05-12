@@ -16,9 +16,11 @@
 
 namespace traccc::sycl {
 
-void measurement_creation(
-    vecmem::data::vector_view<measurement> measurements_view,
-    cluster_container_types::const_view clusters_view, queue_wrapper queue) {
+void measurement_creation(measurement_container_view measurements_view,
+                          cluster_container_types::const_view clusters_view,
+                          const cell_container_types::host& cells_per_event,
+                          vecmem::memory_resource& resource,
+                          queue_wrapper queue) {
 
     // The kernel execution range
     auto n_clusters = clusters_view.headers.size();
@@ -28,19 +30,26 @@ void measurement_creation(
     auto num = (n_clusters + workGroupSize - 1) / workGroupSize;
     auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * workGroupSize),
                                        ::sycl::range<1>(workGroupSize)};
+
+    // Get the view of the cells container
+    auto cells_data = get_data(cells_per_event, &resource);
+    cell_container_types::const_view cells_view(cells_data);
+
     // Run the kernel
     details::get_queue(queue)
         .parallel_for<class MeasurementCreation>(
             ndrange,
-            [clusters_view, measurements_view](::sycl::nd_item<1> item) {
+            [clusters_view, measurements_view,
+             cells_view](::sycl::nd_item<1> item) {
                 // Get the global index
                 auto idx = item.get_global_linear_id();
 
                 // Initialize device vectors
                 const cluster_container_types::const_device clusters_device(
                     clusters_view);
-                device_measurement_collection measurements_device(
+                device_measurement_container measurements_device(
                     measurements_view);
+                cell_container_types::const_device cells_device(cells_view);
 
                 // Ignore if idx is out of range
                 if (idx >= clusters_device.size())
@@ -56,6 +65,9 @@ void measurement_creation(
                 const auto module_idx = cl_id.module_idx;
 
                 scalar totalWeight = 0.;
+
+                // Get the cell module for this module idx
+                const auto& module = cells_device[module_idx].header;
 
                 // To calculate the mean and variance with high numerical
                 // stability we use a weighted variant of Welford's algorithm.
@@ -85,9 +97,9 @@ void measurement_creation(
                     // plus pitch^2 / 12
                     m.variance = m.variance + point2{pitch[0] * pitch[0] / 12,
                                                      pitch[1] * pitch[1] / 12};
-                    m.module_idx = module_idx;
                     // @todo add variance estimation
-                    measurements_device.push_back(m);
+                    measurements_device[module_idx].header = module;
+                    measurements_device[module_idx].items.push_back(m);
                 }
             })
         .wait_and_throw();

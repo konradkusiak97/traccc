@@ -8,6 +8,7 @@
 #pragma once
 
 // Project include(s).
+#include "traccc/device/get_prefix_sum.hpp"
 #include "traccc/edm/cell.hpp"
 #include "traccc/edm/measurement.hpp"
 #include "traccc/edm/spacepoint.hpp"
@@ -22,8 +23,9 @@ namespace traccc::sycl {
 ///
 void spacepoint_formation(
     spacepoint_container_view spacepoints_view,
-    vecmem::data::vector_view<measurement> measurements_view,
-    const cell_container_types::host& cells_per_event,
-    vecmem::memory_resource& resource, queue_wrapper queue);
+    measurement_container_view measurements_view,
+    vecmem::data::vector_view<const device::prefix_sum_element_t>
+        measurements_prefix_sum_view,
+    queue_wrapper queue);
 
 }  // namespace traccc::sycl

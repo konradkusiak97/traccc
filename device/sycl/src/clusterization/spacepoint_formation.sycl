@@ -18,12 +18,13 @@ namespace traccc::sycl {
 
 void spacepoint_formation(
     spacepoint_container_view spacepoints_view,
-    vecmem::data::vector_view<measurement> measurements_view,
-    const cell_container_types::host& cells_per_event,
-    vecmem::memory_resource& resource, queue_wrapper queue) {
+    measurement_container_view measurements_view,
+    vecmem::data::vector_view<const device::prefix_sum_element_t>
+        measurements_prefix_sum_view,
+    queue_wrapper queue) {
 
     // The execution range of the kernel
-    auto n_measurements = measurements_view.size();
+    auto n_measurements = measurements_prefix_sum_view.size();
 
     // Calculate the execution NDrange for the kernel
     auto wGroupSize = 64;
@@ -31,35 +32,37 @@ void spacepoint_formation(
     auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * wGroupSize),
                                        ::sycl::range<1>(wGroupSize)};
 
-    // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, &resource);
-    cell_container_types::const_view cells_view(cells_data);
-
     details::get_queue(queue)
         .submit([&ndrange, &spacepoints_view, &measurements_view,
-                 &cells_view](::sycl::handler& h) {
+                 &measurements_prefix_sum_view](::sycl::handler& h) {
             h.parallel_for<class SpacepointFormation>(
                 ndrange, [=](::sycl::nd_item<1> item) {
                     // Get the global idx
                     auto idx = item.get_global_linear_id();
-                    device_measurement_collection measurements_device(
+
+                    // Initialize device containers
+                    device_measurement_container measurements_device(
                         measurements_view);
                     device_spacepoint_container spacepoints_device(
                         spacepoints_view);
+                    vecmem::device_vector<const device::prefix_sum_element_t>
+                        measurements_prefix_sum(measurements_prefix_sum_view);
 
                     // Ignore if idx is out of range
-                    if (idx >= measurements_device.size())
+                    if (idx >= measurements_prefix_sum.size())
                         return;
 
-                    // current module idx
-                    const auto module_idx = measurements_device[idx].module_idx;
+                    // Get the indices from the prefix sum vector
+                    const auto module_idx = measurements_prefix_sum[idx].first;
+                    const auto measurement_idx =
+                        measurements_prefix_sum[idx].second;
+
+                    // Get the measurement for rhis idx
+                    const auto& m = measurements_device[module_idx].items.at(
+                        measurement_idx);
 
                     // current cell module
-                    cell_container_types::const_device cells_device(cells_view);
-                    const auto& module = cells_device.at(module_idx).header;
-
-                    // Get the current measurement
-                    const auto& m = measurements_device[idx];
+                    const auto& module = measurements_device[module_idx].header;
 
                     // Form a spacepoint based on this measurement
                     point3 local_3d = {m.local[0], m.local[1], 0.};

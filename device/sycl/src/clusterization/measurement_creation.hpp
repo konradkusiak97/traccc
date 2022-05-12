@@ -16,8 +16,10 @@ namespace traccc::sycl {
 
 /// Forward decleration of measurement creation kernel
 ///
-void measurement_creation(
-    vecmem::data::vector_view<measurement> measurements_view,
-    cluster_container_types::const_view clusters_view, queue_wrapper queue);
+void measurement_creation(measurement_container_view measurements_view,
+                          cluster_container_types::const_view clusters_view,
+                          const cell_container_types::host& cells_per_event,
+                          vecmem::memory_resource& resource,
+                          queue_wrapper queue);
 
 }  // namespace traccc::sycl

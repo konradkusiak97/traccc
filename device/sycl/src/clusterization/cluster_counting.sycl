@@ -17,7 +17,6 @@
 namespace traccc::sycl {
 
 void cluster_counting(
-    std::size_t num_modules,
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
     vecmem::data::vector_view<unsigned int> cluster_sizes_view,
     vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
@@ -26,7 +25,7 @@ void cluster_counting(
 
     // X dimension of the execution grid (the Y dim is the cells_max)
     auto n_modules = vecmem::make_unique_alloc<std::size_t>(resource);
-    *n_modules = num_modules;
+    *n_modules = cluster_prefix_sum_view.size();
 
     // Calculate the 2-dim NDrange for the kernel
     auto wGroupSize = 16;

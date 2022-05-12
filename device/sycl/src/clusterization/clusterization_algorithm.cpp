@@ -5,8 +5,10 @@
  * Mozilla Public License Version 2.0
  */
 
-// Clusterization include(s)
+// Project include(s)
 #include "traccc/sycl/clusterization/clusterization_algorithm.hpp"
+
+#include "traccc/device/get_prefix_sum.hpp"
 
 // SYCL library include(s).
 #include "cluster_counting.hpp"
@@ -36,6 +38,7 @@ host_spacepoint_container clusterization_algorithm::operator()(
     // Get the sizes of the cells in each module (+1 is an extra space for
     // storing the n_clusters at the end of the indices vector) and the maximum
     // size of cells in module
+    // With device memory do below with copy.get_sizes()
     std::size_t cells_max = 0;
     std::vector<std::size_t> cell_sizes(num_modules, 0);
     for (std::size_t j = 0; j < num_modules; ++j) {
@@ -71,8 +74,8 @@ host_spacepoint_container clusterization_algorithm::operator()(
     // kernel
     vecmem::vector<unsigned int> cluster_sizes(*total_clusters, 0, &m_mr.get());
     traccc::sycl::cluster_counting(
-        num_modules, sparse_ccl_indices, vecmem::get_data(cluster_sizes),
-        cluster_prefix_sum, cells_max, m_mr.get(), m_queue);
+        sparse_ccl_indices, vecmem::get_data(cluster_sizes), cluster_prefix_sum,
+        cells_max, m_mr.get(), m_queue);
 
     // Cluster container buffer for the clusters and headers (cluster ids)
     cluster_container_types::buffer clusters_buffer{
@@ -95,13 +98,16 @@ host_spacepoint_container clusterization_algorithm::operator()(
     copy(clusters_per_module, clusters_per_module_host);
 
     // Resizable buffer for the measurements
-    vecmem::data::vector_buffer<measurement> measurements_buffer(
-        *total_clusters, 0, m_mr.get());
-    copy.setup(measurements_buffer);
+    measurement_container_buffer measurements_buffer{
+        {num_modules, m_mr.get()},
+        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
+         m_mr.get()}};
+    copy.setup(measurements_buffer.headers);
+    copy.setup(measurements_buffer.items);
 
     // Measurement creation kernel
     traccc::sycl::measurement_creation(measurements_buffer, clusters_buffer,
-                                       m_queue);
+                                       cells_per_event, m_mr.get(), m_queue);
 
     spacepoint_container_buffer spacepoints_buffer{
         {num_modules, m_mr.get()},
@@ -110,9 +116,14 @@ host_spacepoint_container clusterization_algorithm::operator()(
     copy.setup(spacepoints_buffer.headers);
     copy.setup(spacepoints_buffer.items);
 
+    // Get the prefix sum for the measurements.
+    const device::prefix_sum_t measurements_prefix_sum = device::get_prefix_sum(
+        copy.get_sizes(measurements_buffer.items), m_mr.get());
+
     // Do the spacepoint formation
-    traccc::sycl::spacepoint_formation(spacepoints_buffer, measurements_buffer,
-                                       cells_per_event, m_mr.get(), m_queue);
+    traccc::sycl::spacepoint_formation(
+        spacepoints_buffer, measurements_buffer,
+        vecmem::get_data(measurements_prefix_sum), m_queue);
 
     host_spacepoint_container spacepoints_per_event(&m_mr.get());
     copy(spacepoints_buffer.headers, spacepoints_per_event.get_headers());
