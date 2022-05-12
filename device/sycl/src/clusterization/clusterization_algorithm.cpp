@@ -105,14 +105,14 @@ host_spacepoint_container clusterization_algorithm::operator()(
 
     spacepoint_container_buffer spacepoints_buffer{
         {num_modules, m_mr.get()},
-        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host, m_mr.get()}};
+        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
+         m_mr.get()}};
     copy.setup(spacepoints_buffer.headers);
     copy.setup(spacepoints_buffer.items);
 
     // Do the spacepoint formation
     traccc::sycl::spacepoint_formation(spacepoints_buffer, measurements_buffer,
-                                       cells_per_event, *total_clusters,
-                                       m_mr.get(), m_queue);
+                                       cells_per_event, m_mr.get(), m_queue);
 
     host_spacepoint_container spacepoints_per_event(&m_mr.get());
     copy(spacepoints_buffer.headers, spacepoints_per_event.get_headers());

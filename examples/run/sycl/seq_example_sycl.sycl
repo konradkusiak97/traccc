@@ -155,7 +155,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
         /*time*/ sp_formation_cpu += time_sp_formation_cpu.count();
 
         /*---------------------------------
-               Spacepoint formation (SYCL)
+               Clusterization & Spacepoint formation (SYCL)
           ---------------------------------*/
 
         /*time*/ auto start_clusterization_sycl =
@@ -297,7 +297,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
                                       i_cfg.hit_directory,
                                       i_cfg.particle_directory, host_mr);
             sd_performance_writer.write("SYCL", seeds_sycl,
-                                        spacepoints_per_event, evt_map);
+                                        spacepoints_per_event_sycl, evt_map);
 
             if (run_cpu) {
                 sd_performance_writer.write("CPU", seeds, spacepoints_per_event,
@@ -323,8 +323,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
               << std::endl;
     std::cout << "- created        " << n_spacepoints << " spacepoints     "
               << std::endl;
-    std::cout << "- created (SYCL) " << n_spacepoints_sycl << " spacepoints     "
-              << std::endl;
+    std::cout << "- created (sycl) " << n_spacepoints_sycl
+              << " spacepoints     " << std::endl;
 
     std::cout << "- created (cpu)  " << n_seeds << " seeds" << std::endl;
     std::cout << "- created (sycl) " << n_seeds_sycl << " seeds" << std::endl;

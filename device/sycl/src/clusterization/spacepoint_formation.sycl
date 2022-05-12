@@ -20,8 +20,10 @@ void spacepoint_formation(
     spacepoint_container_view spacepoints_view,
     vecmem::data::vector_view<measurement> measurements_view,
     const cell_container_types::host& cells_per_event,
-    std::size_t n_measurements, vecmem::memory_resource& resource,
-    queue_wrapper queue) {
+    vecmem::memory_resource& resource, queue_wrapper queue) {
+
+    // The execution range of the kernel
+    auto n_measurements = measurements_view.size();
 
     // Calculate the execution NDrange for the kernel
     auto wGroupSize = 64;
@@ -34,16 +36,16 @@ void spacepoint_formation(
     cell_container_types::const_view cells_view(cells_data);
 
     details::get_queue(queue)
-        .submit([&ndrange, &spacepoints_view,
-                 &measurements_view, &cells_view](::sycl::handler& h) {
+        .submit([&ndrange, &spacepoints_view, &measurements_view,
+                 &cells_view](::sycl::handler& h) {
             h.parallel_for<class SpacepointFormation>(
                 ndrange, [=](::sycl::nd_item<1> item) {
-
                     // Get the global idx
                     auto idx = item.get_global_linear_id();
                     device_measurement_collection measurements_device(
                         measurements_view);
-                    device_spacepoint_container spacepoints_device(spacepoints_view);
+                    device_spacepoint_container spacepoints_device(
+                        spacepoints_view);
 
                     // Ignore if idx is out of range
                     if (idx >= measurements_device.size())
@@ -64,7 +66,8 @@ void spacepoint_formation(
                     point3 global = module.placement.point_to_global(local_3d);
                     spacepoint s({global, m});
 
-                    // Push the speacpoint into the container at the appropriate module idx
+                    // Push the speacpoint into the container at the appropriate
+                    // module idx
                     spacepoints_device[module_idx].header = module.module;
                     spacepoints_device[module_idx].items.push_back(s);
                 });
