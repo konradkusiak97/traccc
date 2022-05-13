@@ -18,8 +18,7 @@ namespace traccc::sycl {
 ///
 void measurement_creation(measurement_container_view measurements_view,
                           cluster_container_types::const_view clusters_view,
-                          const cell_container_types::host& cells_per_event,
-                          vecmem::memory_resource& resource,
+                          const cell_container_types::const_view& cells_view,
                           queue_wrapper queue);
 
 }  // namespace traccc::sycl

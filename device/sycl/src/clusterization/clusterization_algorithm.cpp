@@ -20,6 +20,10 @@
 // Vecmem include(s).
 #include <vecmem/utils/copy.hpp>
 
+// System include(s).
+#include <algorithm>
+#include <iostream>
+
 namespace traccc::sycl {
 
 clusterization_algorithm::clusterization_algorithm(vecmem::memory_resource &mr,
@@ -35,21 +39,24 @@ host_spacepoint_container clusterization_algorithm::operator()(
     // Vecmem copy object for moving the data between host and device
     vecmem::copy copy;
 
-    // Get the sizes of the cells in each module (+1 is an extra space for
-    // storing the n_clusters at the end of the indices vector) and the maximum
-    // size of cells in module
-    // With device memory do below with copy.get_sizes()
-    std::size_t cells_max = 0;
-    std::vector<std::size_t> cell_sizes(num_modules, 0);
-    for (std::size_t j = 0; j < num_modules; ++j) {
-        cell_sizes[j] = cells_per_event.get_items().at(j).size() + 1;
-        if (cell_sizes[j] - 1 > cells_max)
-            cells_max = cell_sizes[j] - 1;
-    }
+    // Get the view of the cells container
+    auto cells_data = get_data(cells_per_event, &m_mr.get());
+    cell_container_types::const_view cells_view(cells_data);
+
+    // Get the sizes of the cells in each module
+    auto cell_sizes = copy.get_sizes(cells_view.items);
+
+    // Get the cell sizes with +1 in each entry for sparse ccl indices buffer
+    // The +1 is needed to store the number of found clusters at the end of
+    // the vector for each module
+    std::vector<std::size_t> cell_sizes_plus(num_modules);
+    std::transform(cell_sizes.begin(), cell_sizes.end(),
+                   cell_sizes_plus.begin(),
+                   [](std::size_t x) { return x + 1; });
 
     // Helper container for sparse CCL calculations
     vecmem::data::jagged_vector_buffer<unsigned int> sparse_ccl_indices(
-        cell_sizes, m_mr.get());
+        cell_sizes_plus, m_mr.get());
     copy.setup(sparse_ccl_indices);
 
     // Vector buffer for prefix sums for proper indexing, used only on device.
@@ -66,31 +73,27 @@ host_spacepoint_container clusterization_algorithm::operator()(
     // will be found (and also computes the prefix sums and clusters per module)
     auto total_clusters = vecmem::make_unique_alloc<unsigned int>(m_mr.get());
     *total_clusters = 0;
-    traccc::sycl::clusters_sum(cells_per_event, sparse_ccl_indices,
-                               *total_clusters, cluster_prefix_sum,
-                               clusters_per_module, m_mr.get(), m_queue);
+
+    ///////////// Invoke Clusters_sum kernel ////////////////
+    traccc::sycl::clusters_sum(cells_view, sparse_ccl_indices, *total_clusters,
+                               cluster_prefix_sum, clusters_per_module,
+                               m_queue);
+
+    // Get the prefix sum of the cells
+    const device::prefix_sum_t cells_prefix_sum =
+        device::get_prefix_sum(cell_sizes, m_mr.get());
+    ///////////// Wait here for Clusters_sum kernel ////////////////
 
     // Vector of the exact cluster sizes, will be filled in cluster_counting
     // kernel
     vecmem::vector<unsigned int> cluster_sizes(*total_clusters, 0, &m_mr.get());
+
+    ///////////// Invoke Cluster_counting kernel ////////////////
     traccc::sycl::cluster_counting(
         sparse_ccl_indices, vecmem::get_data(cluster_sizes), cluster_prefix_sum,
-        cells_max, m_mr.get(), m_queue);
+        vecmem::get_data(cells_prefix_sum), m_queue);
 
-    // Cluster container buffer for the clusters and headers (cluster ids)
-    cluster_container_types::buffer clusters_buffer{
-        {*total_clusters, m_mr.get()},
-        {std::vector<std::size_t>(*total_clusters, 0),
-         std::vector<std::size_t>(cluster_sizes.begin(), cluster_sizes.end()),
-         m_mr.get()}};
-
-    copy.setup(clusters_buffer.headers);
-    copy.setup(clusters_buffer.items);
-
-    // Component connection kernel
-    traccc::sycl::component_connection(clusters_buffer, cells_per_event,
-                                       sparse_ccl_indices, cluster_prefix_sum,
-                                       cells_max, m_mr.get(), m_queue);
+    /////// Buffer initializiation for future kernels while this one is running 
 
     // Copy the sizes of clusters per each module to the std vector for
     // measurement buffer initialization
@@ -104,27 +107,50 @@ host_spacepoint_container clusterization_algorithm::operator()(
          m_mr.get()}};
     copy.setup(measurements_buffer.headers);
     copy.setup(measurements_buffer.items);
+    ///////////// Wait here for Cluster_counting kernel ////////////////
 
+    // Cluster container buffer for the clusters and headers (cluster ids)
+    cluster_container_types::buffer clusters_buffer{
+        {*total_clusters, m_mr.get()},
+        {std::vector<std::size_t>(*total_clusters, 0),
+         std::vector<std::size_t>(cluster_sizes.begin(), cluster_sizes.end()),
+         m_mr.get()}};
+
+    copy.setup(clusters_buffer.headers);
+    copy.setup(clusters_buffer.items);
+
+    ///////////// Invoke Component_connection kernel ////////////////
+    // Component connection kernel
+    traccc::sycl::component_connection(
+        clusters_buffer, cells_view, sparse_ccl_indices, cluster_prefix_sum,
+        vecmem::get_data(cells_prefix_sum), m_queue);
+    ///////////// Wait here for Component_connection kernel ////////////////
+
+    ///////////// Invoke Measurement_creation kernel ////////////////
     // Measurement creation kernel
     traccc::sycl::measurement_creation(measurements_buffer, clusters_buffer,
-                                       cells_per_event, m_mr.get(), m_queue);
+                                       cells_view, m_queue);
 
+    /////// Buffer initializiation for future kernels while this one is running 
+    // Spacepoint container buffer to fill in spacepoint formation
     spacepoint_container_buffer spacepoints_buffer{
         {num_modules, m_mr.get()},
         {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
          m_mr.get()}};
     copy.setup(spacepoints_buffer.headers);
     copy.setup(spacepoints_buffer.items);
+    ///////////// Wait here for Measurement_creation kernel ////////////////
 
-    // Get the prefix sum for the measurements.
+    // Get the prefix sum of the measurements.
     const device::prefix_sum_t measurements_prefix_sum = device::get_prefix_sum(
         copy.get_sizes(measurements_buffer.items), m_mr.get());
 
-    // Do the spacepoint formation
+    // Spacepoint formation kernel
     traccc::sycl::spacepoint_formation(
         spacepoints_buffer, measurements_buffer,
         vecmem::get_data(measurements_prefix_sum), m_queue);
 
+    // Copy the results back to the host
     host_spacepoint_container spacepoints_per_event(&m_mr.get());
     copy(spacepoints_buffer.headers, spacepoints_per_event.get_headers());
     copy(spacepoints_buffer.items, spacepoints_per_event.get_items());

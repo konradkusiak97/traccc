@@ -57,11 +57,11 @@ void spacepoint_formation(
                     const auto measurement_idx =
                         measurements_prefix_sum[idx].second;
 
-                    // Get the measurement for rhis idx
+                    // Get the measurement for this idx
                     const auto& m = measurements_device[module_idx].items.at(
                         measurement_idx);
 
-                    // current cell module
+                    // Get the current cell module
                     const auto& module = measurements_device[module_idx].header;
 
                     // Form a spacepoint based on this measurement

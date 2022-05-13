@@ -17,15 +17,15 @@
 namespace traccc::sycl {
 
 void clusters_sum(
-    const cell_container_types::host& cells_per_event,
+    const cell_container_types::const_view& cells_view,
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
     unsigned int& total_clusters,
     vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
     vecmem::data::vector_view<std::size_t> clusters_per_module_view,
-    vecmem::memory_resource& resource, queue_wrapper queue) {
+    queue_wrapper queue) {
 
     // Execution size of the algorithm
-    std::size_t n_modules = cells_per_event.size();
+    std::size_t n_modules = cells_view.headers.size();
 
     // Calculate the execution NDrange for the kernel
     auto wGroupSize = 64;
@@ -33,19 +33,13 @@ void clusters_sum(
     auto ndrange = ::sycl::nd_range<1>{::sycl::range<1>(num * wGroupSize),
                                        ::sycl::range<1>(wGroupSize)};
 
-    // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, &resource);
-    cell_container_types::const_view cells_view(cells_data);
-
     details::get_queue(queue)
         .submit([&ndrange, &cells_view, &sparse_ccl_indices_view,
                  &total_clusters, &cluster_prefix_sum_view,
                  &clusters_per_module_view](::sycl::handler& h) {
             h.parallel_for<class ClusterSum>(
                 ndrange,
-                [cells_view, sparse_ccl_indices_view,
-                 total_clusters = &total_clusters, cluster_prefix_sum_view,
-                 clusters_per_module_view](::sycl::nd_item<1> item) {
+                [=, total_clusters = &total_clusters](::sycl::nd_item<1> item) {
                     // Get the global index
                     auto idx = item.get_global_linear_id();
 
