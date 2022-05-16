@@ -154,9 +154,9 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
             end_sp_formation_cpu - start_sp_formation_cpu;
         /*time*/ sp_formation_cpu += time_sp_formation_cpu.count();
 
-        /*---------------------------------
+        /*---------------------------------------------------
                Clusterization & Spacepoint formation (SYCL)
-          ---------------------------------*/
+          ---------------------------------------------------*/
 
         /*time*/ auto start_clusterization_sycl =
             std::chrono::system_clock::now();
@@ -244,9 +244,43 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
             std::cout << " number of seeds (sycl): " << seeds_sycl.size()
                       << std::endl;
 
-            // seeding matching rate
+            // measurements & spacepoint matching rate
+            int n_m_match = 0;
             int n_match = 0;
+            assert(spacepoints_per_event.size() ==
+                   spacepoints_per_event_sycl.size());
+            for (std::size_t i = 0; i < spacepoints_per_event.size(); ++i) {
+                assert(spacepoints_per_event[i].items.size() ==
+                       spacepoints_per_event_sycl[i].items.size());
+                for (auto& sp : spacepoints_per_event[i].items) {
+                    auto found_sp = std::find(
+                        spacepoints_per_event_sycl[i].items.begin(),
+                        spacepoints_per_event_sycl[i].items.end(), sp);
+                    auto found_m = std::find_if(
+                        spacepoints_per_event_sycl[i].items.begin(),
+                        spacepoints_per_event_sycl[i].items.end(),
+                        [&sp](auto& sp_sycl) {
+                            return sp.meas == sp_sycl.meas;
+                        });
+                    if (found_m != spacepoints_per_event_sycl[i].items.end()) {
+                        n_m_match++;
+                    }
+                    if (found_sp != spacepoints_per_event_sycl[i].items.end()) {
+                        n_match++;
+                    }
+                }
+            }
+            float m_matching_rate =
+                float(n_m_match) / spacepoints_per_event.total_size();
+            std::cout << " measurements matching rate: " << m_matching_rate
+                      << std::endl;
+            float matching_rate =
+                float(n_match) / spacepoints_per_event.total_size();
+            std::cout << " spacepoint matching rate: " << matching_rate
+                      << std::endl;
 
+            // seeding matching rate
+            n_match = 0;
             std::vector<std::array<traccc::spacepoint, 3>> sp3_vector =
                 traccc::get_spacepoint_vector(seeds, spacepoints_per_event);
 
@@ -260,7 +294,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
                     n_match++;
                 }
             }
-            float matching_rate = float(n_match) / seeds.size();
+            matching_rate = float(n_match) / seeds.size();
             std::cout << " seed matching rate: " << matching_rate << std::endl;
 
             // track parameter estimation matching rate

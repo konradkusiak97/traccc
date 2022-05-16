@@ -47,7 +47,7 @@ host_spacepoint_container clusterization_algorithm::operator()(
 
     // Get the cell sizes with +1 in each entry for sparse ccl indices buffer
     // The +1 is needed to store the number of found clusters at the end of
-    // the vector for each module
+    // the vector in each module
     std::vector<std::size_t> cell_sizes_plus(num_modules);
     std::transform(cell_sizes.begin(), cell_sizes.end(),
                    cell_sizes_plus.begin(),
