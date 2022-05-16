@@ -8,8 +8,8 @@
 #pragma once
 
 // Project include(s).
-#include "traccc/edm/cell.hpp"
 #include "traccc/device/get_prefix_sum.hpp"
+#include "traccc/edm/cell.hpp"
 
 // Vecmem include(s).
 #include <vecmem/containers/data/jagged_vector_view.hpp>
@@ -17,7 +17,7 @@
 
 namespace traccc::sycl {
 
-/// Forward declaration of component connection function
+/// Forward declaration of cluster counting function
 ///
 void cluster_counting(
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,

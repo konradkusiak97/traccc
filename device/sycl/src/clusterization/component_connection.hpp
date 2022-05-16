@@ -8,9 +8,9 @@
 #pragma once
 
 // Project include(s).
+#include "traccc/device/get_prefix_sum.hpp"
 #include "traccc/edm/cell.hpp"
 #include "traccc/edm/cluster.hpp"
-#include "traccc/device/get_prefix_sum.hpp"
 
 // Vecmem include(s).
 #include <vecmem/containers/data/jagged_vector_view.hpp>

@@ -34,8 +34,8 @@ void cluster_counting(
                                        ::sycl::range<1>(wGroupSize)};
 
     details::get_queue(queue)
-        .submit([&ndrange, &sparse_ccl_indices_view,
-                 &cluster_sizes_view, &cluster_prefix_sum_view,
+        .submit([&ndrange, &sparse_ccl_indices_view, &cluster_sizes_view,
+                 &cluster_prefix_sum_view,
                  &cells_prefix_sum_view](::sycl::handler& h) {
             h.parallel_for<class ClusterCounting>(
                 ndrange, [=](::sycl::nd_item<1> item) {
@@ -51,7 +51,7 @@ void cluster_counting(
                         return;
 
                     // Get the indices for the module and the cell in this
-                    // module
+                    // module, from the prefix sum
                     auto module_idx = cells_prefix_sum[idx].first;
                     auto cell_idx = cells_prefix_sum[idx].second;
 
@@ -65,8 +65,8 @@ void cluster_counting(
                     const unsigned int n_clusters = cluster_indices.back();
 
                     // Get the cluster prefix sum at this module_idx to know
-                    // where to write clusters from this module to the
-                    // cluster_container
+                    // where to write current clusters in the
+                    // cluster container
                     vecmem::device_vector<std::size_t>
                         device_cluster_prefix_sum(cluster_prefix_sum_view);
                     const std::size_t prefix_sum =

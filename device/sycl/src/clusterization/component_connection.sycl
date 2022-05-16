@@ -40,26 +40,26 @@ void component_connection(
                  &cells_prefix_sum_view](::sycl::handler& h) {
             h.parallel_for<class ComponentConnection>(
                 ndrange, [=](::sycl::nd_item<1> item) {
-                    // Get current idx
+                    // Get the current idx
                     auto idx = item.get_global_linear_id();
 
-                    // Get the device vector of the cells prefix sum
+                    // Get device vector of the cells prefix sum
                     vecmem::device_vector<const device::prefix_sum_element_t>
                         cells_prefix_sum(cells_prefix_sum_view);
 
                     if (idx >= cells_prefix_sum.size())
                         return;
 
-                    // Get the indices for the mopdule idx and the cell idx
+                    // Get the indices for the module idx and the cell idx
                     auto module_idx = cells_prefix_sum[idx].first;
                     auto cell_idx = cells_prefix_sum[idx].second;
 
-                    // Initialize the data on the device
+                    // Initialize the device containers for cells and clusters
                     cell_container_types::const_device cells_device(cells_view);
                     cluster_container_types::device clusters_device(
                         clusters_view);
 
-                    // Get the cells from the current module
+                    // Get the cells for the current module idx
                     const auto& cells = cells_device.at(module_idx).items;
                     const auto module = cells_device.at(module_idx).header;
 
@@ -78,7 +78,8 @@ void component_connection(
                     const auto prefix_sum =
                         device_cluster_prefix_sum[module_idx];
 
-                    // Push back the cells to the correct item vector
+                    // Push back the cells to the correct item vector indicated
+                    // by the cluster prefix sum
                     unsigned int cindex = cluster_indices[cell_idx] - 1;
                     if (cindex < num_clusters) {
                         // Create cluster id - same for all clusters in this
