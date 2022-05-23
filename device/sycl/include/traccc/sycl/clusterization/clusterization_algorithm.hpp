@@ -35,8 +35,7 @@ class clusterization_algorithm
     ///
     /// @param mr is a struct of memory resources (shared or host & device)
     /// @param queue is the sycl queue for kernel invocation
-    clusterization_algorithm(const traccc::memory_resource& mr,
-                             queue_wrapper queue);
+    clusterization_algorithm(vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, queue_wrapper queue);
 
     /// Callable operator for clusterization algorithm
     ///
@@ -48,7 +47,8 @@ class clusterization_algorithm
         const cell_container_types::host& cells_per_event) const override;
 
     private:
-    traccc::memory_resource m_mr;
+    std::reference_wrapper<vecmem::memory_resource> m_mr;
+    std::reference_wrapper<vecmem::memory_resource> m_device_mr;
     mutable queue_wrapper m_queue;
     std::unique_ptr<vecmem::copy> m_copy;
 };
