@@ -40,7 +40,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     vecmem::sycl::copy copy(m_queue.queue());
 
     // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, &m_mr.get());
+    auto cells_data = get_data(cells_per_event);
 
     // Get the sizes of the cells in each module
     auto cell_sizes = copy.get_sizes(cells_data.items);
@@ -52,6 +52,14 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     std::transform(cell_sizes.begin(), cell_sizes.end(),
                    cell_sizes_plus.begin(),
                    [](std::size_t x) { return x + 1; });
+
+    // cell_container_types::buffer cells_buffer{{num_modules, m_device_mr.get()}, {std::vector<std::size_t>(cell_sizes.begin(), cell_sizes.end()),
+    //                                                                              std::vector<std::size_t>(cell_sizes.begin(), cell_sizes.end()),
+    //                                                                              m_device_mr.get(), &m_mr.get()}};
+    // copy.setup(cells_buffer.headers);
+    // copy.setup(cells_buffer.items);
+    // copy(cells_data.headers, cells_buffer.headers);
+    // copy(cells_data.items, cells_buffer.items);
 
     // Helper container for sparse CCL calculations
     vecmem::data::jagged_vector_buffer<unsigned int> sparse_ccl_indices(
