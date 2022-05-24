@@ -35,7 +35,9 @@ class clusterization_algorithm
     ///
     /// @param mr is a struct of memory resources (shared or host & device)
     /// @param queue is the sycl queue for kernel invocation
-    clusterization_algorithm(vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, queue_wrapper queue);
+    clusterization_algorithm(vecmem::memory_resource& mr,
+                             vecmem::memory_resource& device_mr,
+                             queue_wrapper queue);
 
     /// Callable operator for clusterization algorithm
     ///
