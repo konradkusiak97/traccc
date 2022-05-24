@@ -58,38 +58,60 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
         cell_sizes_plus, m_mr.get());
     copy.setup(sparse_ccl_indices);
 
-    // Vector buffer for prefix sums for proper indexing, used only on device.
-    // Vector with "clusters per module" is needed for measurement creation
-    // buffer
-    vecmem::data::vector_buffer<std::size_t> cluster_prefix_sum(num_modules,
-                                                                m_mr.get());
+    // Vector with numbers of found clusters in each module, later trandformed into prefix sum vector
     vecmem::data::vector_buffer<std::size_t> clusters_per_module(num_modules,
                                                                  m_mr.get());
-    copy.setup(cluster_prefix_sum);
     copy.setup(clusters_per_module);
-
-    // Invoke the reduction kernel that gives the total number of clusters which
-    // will be found (and also computes the prefix sums and clusters per module)
-    auto total_clusters = vecmem::make_unique_alloc<unsigned int>(m_mr.get());
-    *total_clusters = 0;
 
     // Get the prefix sum of the cells
     const device::prefix_sum_t cells_prefix_sum =
         device::get_prefix_sum(cell_sizes, m_mr.get());
 
     // Clusters sum kernel
-    traccc::sycl::clusters_sum(cells_view, sparse_ccl_indices, *total_clusters,
-                               cluster_prefix_sum, clusters_per_module,
+    traccc::sycl::clusters_sum(cells_view, sparse_ccl_indices, 
+                               clusters_per_module,
                                m_queue);
+
+    // Copy the sizes of clusters per each module to the host 
+    vecmem::vector<std::size_t> clusters_per_module_host(&m_mr.get());
+    copy(clusters_per_module, clusters_per_module_host);
+
+    // Resizable buffer for the measurements
+    measurement_container_types::buffer measurements_buffer{
+        {num_modules, m_mr.get()},
+        {std::vector<std::size_t>(num_modules, 0), 
+         std::vector<std::size_t>(clusters_per_module_host.begin(), clusters_per_module_host.end()),
+         m_mr.get()}};
+    copy.setup(measurements_buffer.headers);
+    copy.setup(measurements_buffer.items);
+
+    // Spacepoint container buffer to fill in spacepoint formation
+    spacepoint_container_types::buffer spacepoints_buffer{
+        {num_modules, m_mr.get()},
+        {std::vector<std::size_t>(num_modules, 0), 
+         std::vector<std::size_t>(clusters_per_module_host.begin(), clusters_per_module_host.end()),
+         m_mr.get()}};
+    copy.setup(spacepoints_buffer.headers);
+    copy.setup(spacepoints_buffer.items);
+
+    // Perform the exclusive scan operation. It will results with a vector of prefix sums, starting with 0, until the second to last sum.
+    // The total numbewr of clusters in this case will be the last prefix sum + the clusters found in the last idx 
+    unsigned int total_clusters = clusters_per_module_host.back();
+    std::exclusive_scan(clusters_per_module_host.begin(), clusters_per_module_host.end(), clusters_per_module_host.begin(), 0);
+    total_clusters += clusters_per_module_host.back();
+
+    // Copy the prefix sum back to its device container
+    copy(vecmem::get_data(clusters_per_module_host), clusters_per_module);
 
     // Vector of the exact cluster sizes, will be filled in cluster counting
     vecmem::data::vector_buffer<unsigned int> cluster_sizes_buffer(
-        *total_clusters, m_mr.get());
+        total_clusters, m_mr.get());
     copy.setup(cluster_sizes_buffer);
+    copy.memset(cluster_sizes_buffer, 0);
 
     // Cluster counting kernel
     traccc::sycl::cluster_counting(sparse_ccl_indices, cluster_sizes_buffer,
-                                   cluster_prefix_sum,
+                                   clusters_per_module,
                                    vecmem::get_data(cells_prefix_sum), m_queue);
 
     std::vector<unsigned int> cluster_sizes;
@@ -97,8 +119,8 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Cluster container buffer for the clusters and headers (cluster ids)
     cluster_container_types::buffer clusters_buffer{
-        {*total_clusters, m_mr.get()},
-        {std::vector<std::size_t>(*total_clusters, 0),
+        {total_clusters, m_mr.get()},
+        {std::vector<std::size_t>(total_clusters, 0),
          std::vector<std::size_t>(cluster_sizes.begin(), cluster_sizes.end()),
          m_mr.get()}};
     copy.setup(clusters_buffer.headers);
@@ -106,33 +128,14 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Component connection kernel
     traccc::sycl::component_connection(
-        clusters_buffer, cells_view, sparse_ccl_indices, cluster_prefix_sum,
+        clusters_buffer, cells_view, sparse_ccl_indices, clusters_per_module,
         vecmem::get_data(cells_prefix_sum), m_queue);
 
-    // Copy the sizes of clusters per each module to the std vector for
-    // initialization of measurements buffer
-    std::vector<std::size_t> clusters_per_module_host;
-    copy(clusters_per_module, clusters_per_module_host);
-
-    // Resizable buffer for the measurements
-    measurement_container_types::buffer measurements_buffer{
-        {num_modules, m_mr.get()},
-        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         m_mr.get()}};
-    copy.setup(measurements_buffer.headers);
-    copy.setup(measurements_buffer.items);
 
     // Measurement creation kernel
     traccc::sycl::measurement_creation(measurements_buffer, clusters_buffer,
                                        cells_view, m_queue);
 
-    // Spacepoint container buffer to fill in spacepoint formation
-    spacepoint_container_types::buffer spacepoints_buffer{
-        {num_modules, m_mr.get()},
-        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         m_mr.get()}};
-    copy.setup(spacepoints_buffer.headers);
-    copy.setup(spacepoints_buffer.items);
 
     // Get the prefix sum of the measurements.
     const device::prefix_sum_t measurements_prefix_sum = device::get_prefix_sum(
