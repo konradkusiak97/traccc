@@ -33,7 +33,7 @@ class seeding_algorithm : public algorithm<vecmem::data::vector_buffer<seed>(
     /// @param mr The memory resource to use
     /// @param queue The SYCL queue to work with
     ///
-    seeding_algorithm(vecmem::memory_resource& mr, queue_wrapper queue);
+    seeding_algorithm(vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, queue_wrapper queue);
 
     /// Operator executing the algorithm.
     ///

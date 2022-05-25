@@ -110,8 +110,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
 
     traccc::sycl::clusterization_algorithm ca_sycl(sycl_host_mr, sycl_device_mr,
                                                    &q);
-    // traccc::sycl::seeding_algorithm sa_sycl(shared_mr, &q);
-    // traccc::sycl::track_params_estimation tp_sycl(shared_mr, &q);
+    traccc::sycl::seeding_algorithm sa_sycl(sycl_host_mr, sycl_device_mr, &q);
+    traccc::sycl::track_params_estimation tp_sycl(sycl_host_mr, sycl_device_mr, &q);
 
     // performance writer
     traccc::seeding_performance_writer sd_performance_writer(
@@ -193,8 +193,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
         // SYCL
 
         /*time*/ auto start_seeding_sycl = std::chrono::system_clock::now();
-
-        auto seeds_sycl = sa(spacepoints_per_event);
+        auto seeds_sycl_buffer = sa_sycl(spacepoints_sycl_buffer);
 
         /*time*/ auto end_seeding_sycl = std::chrono::system_clock::now();
         /*time*/ std::chrono::duration<double> time_seeding_sycl =
@@ -225,7 +224,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
         /*time*/ auto start_tp_estimating_sycl =
             std::chrono::system_clock::now();
 
-        auto params_sycl = tp(spacepoints_per_event, seeds_sycl);
+        auto params_sycl = tp(spacepoints_per_event, seeds);
 
         /*time*/ auto end_tp_estimating_sycl = std::chrono::system_clock::now();
         /*time*/ std::chrono::duration<double> time_tp_estimating_sycl =
@@ -254,8 +253,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
              spacepoints_per_event_sycl.get_headers());
         copy(spacepoints_sycl_buffer.items,
              spacepoints_per_event_sycl.get_items());
-        // traccc::host_seed_collection seeds_sycl;
-        // copy(seeds_sycl_buffer, seeds_sycl);
+        traccc::host_seed_collection seeds_sycl;
+        copy(seeds_sycl_buffer, seeds_sycl);
 
         /*----------------------------------
           compare cpu and sycl result
@@ -312,7 +311,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
 
             std::vector<std::array<traccc::spacepoint, 3>> sp3_vector_sycl =
                 traccc::get_spacepoint_vector(seeds_sycl,
-                                              spacepoints_per_event);
+                                              spacepoints_per_event_sycl);
 
             for (const auto& sp3 : sp3_vector) {
                 if (std::find(sp3_vector_sycl.cbegin(), sp3_vector_sycl.cend(),
@@ -358,7 +357,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
                                       i_cfg.cell_directory, i_cfg.hit_directory,
                                       i_cfg.particle_directory, host_mr);
             sd_performance_writer.write("SYCL", seeds_sycl,
-                                        spacepoints_per_event, evt_map);
+                                        spacepoints_per_event_sycl, evt_map);
 
             if (run_cpu) {
                 sd_performance_writer.write("CPU", seeds, spacepoints_per_event,

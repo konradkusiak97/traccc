@@ -35,7 +35,7 @@ struct track_params_estimation
     ///
     /// @param mr is the memory resource
     /// @param q sycl queue for kernel scheduling
-    track_params_estimation(vecmem::memory_resource& mr, queue_wrapper queue);
+    track_params_estimation(vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, queue_wrapper queue);
 
     /// Callable operator for track_params_esitmation
     ///
@@ -48,6 +48,7 @@ struct track_params_estimation
 
     private:
     std::reference_wrapper<vecmem::memory_resource> m_mr;
+    std::reference_wrapper<vecmem::memory_resource> m_device_mr;
     mutable queue_wrapper m_queue;
 };
 

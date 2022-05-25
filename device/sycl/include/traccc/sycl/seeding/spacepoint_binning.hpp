@@ -33,7 +33,7 @@ class spacepoint_binning : public algorithm<sp_grid_buffer(
     /// Constructor for the algorithm
     spacepoint_binning(const seedfinder_config& config,
                        const spacepoint_grid_config& grid_config,
-                       vecmem::memory_resource& mr, const queue_wrapper& queue);
+                        vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, const queue_wrapper& queue);
 
     /// Function executing the algorithm
     sp_grid_buffer operator()(const spacepoint_container_types::const_view&
@@ -43,6 +43,7 @@ class spacepoint_binning : public algorithm<sp_grid_buffer(
     seedfinder_config m_config;
     std::pair<sp_grid::axis_p0_type, sp_grid::axis_p1_type> m_axes;
     std::reference_wrapper<vecmem::memory_resource> m_mr;
+    std::reference_wrapper<vecmem::memory_resource> m_device_mr;
     mutable queue_wrapper m_queue;
 
 };  // class spacepoint_binning

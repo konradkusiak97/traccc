@@ -38,7 +38,7 @@ class seed_finding : public algorithm<vecmem::data::vector_buffer<seed>(
     /// @param stats_config experiment-dependent statistics estimator
     /// @param mr vecmem memory resource
     /// @param q sycl queue for kernel scheduling
-    seed_finding(const seedfinder_config& config, vecmem::memory_resource& mr,
+    seed_finding(const seedfinder_config& config, vecmem::memory_resource& mr, vecmem::memory_resource& device_mr,
                  queue_wrapper queue);
 
     /// Callable operator for the seed finding
@@ -52,6 +52,7 @@ class seed_finding : public algorithm<vecmem::data::vector_buffer<seed>(
     seedfinder_config m_seedfinder_config;
     seedfilter_config m_seedfilter_config;
     std::reference_wrapper<vecmem::memory_resource> m_mr;
+    std::reference_wrapper<vecmem::memory_resource> m_device_mr;
     mutable queue_wrapper m_queue;
 };
 

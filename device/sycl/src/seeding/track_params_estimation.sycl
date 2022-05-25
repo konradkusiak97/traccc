@@ -14,6 +14,9 @@
 // Project include(s).
 #include "traccc/seeding/track_params_estimation_helper.hpp"
 
+// Vecmem include(s).
+#include "vecmem/utils/sycl/copy.hpp"
+
 namespace traccc::sycl {
 
 // kernel class
@@ -67,22 +70,25 @@ class TrackParamsEstimation {
     vecmem::data::vector_view<bound_track_parameters> m_params_view;
 };
 
-track_params_estimation::track_params_estimation(vecmem::memory_resource& mr,
+track_params_estimation::track_params_estimation(vecmem::memory_resource& mr, vecmem::memory_resource& device_mr,
                                                  queue_wrapper queue)
-    : m_mr(mr), m_queue(queue) {}
+    : m_mr(mr), m_device_mr(device_mr), m_queue(queue) {}
 
 track_params_estimation::output_type track_params_estimation::operator()(
     const spacepoint_container_types::const_view& spacepoints_view,
     const vecmem::data::vector_view<const seed>& seeds_view) const {
 
+    vecmem::sycl::copy copy(m_queue.queue());
+    vecmem::data::vector_buffer<traccc::bound_track_parameters> params_buff(seeds_view.size(), m_device_mr.get());
+    copy.setup(params_buff);
+    vecmem::data::vector_view<traccc::bound_track_parameters> params_view(params_buff);
+    
     output_type params(seeds_view.size(), &m_mr.get());
 
     // Check if anything needs to be done.
     if (seeds_view.size() == 0) {
         return params;
     }
-
-    auto params_view = vecmem::get_data(params);
 
     // -- localSize
     // The dimension of workGroup (block) is the integer multiple of WARP_SIZE
@@ -104,6 +110,9 @@ track_params_estimation::output_type track_params_estimation::operator()(
             h.parallel_for<TrackParamsEstimation>(trackParamsNdRange, kernel);
         })
         .wait_and_throw();
+
+    // Copy data back to the host
+    copy(params_buff, params);
 
     return params;
 }

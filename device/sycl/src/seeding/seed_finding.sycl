@@ -26,7 +26,7 @@
 #include "traccc/seeding/device/make_doublet_counter_buffer.hpp"
 
 // VecMem include(s).
-#include "vecmem/utils/copy.hpp"
+#include "vecmem/utils/sycl/copy.hpp"
 
 namespace traccc::sycl {
 namespace kernels {
@@ -40,24 +40,27 @@ class find_doublets;
 }  // namespace kernels
 
 seed_finding::seed_finding(const seedfinder_config& config,
-                           vecmem::memory_resource& mr, queue_wrapper queue)
-    : m_seedfinder_config(config), m_mr(mr), m_queue(queue) {}
+                           vecmem::memory_resource& mr, vecmem::memory_resource& device_mr, queue_wrapper queue)
+    : m_seedfinder_config(config), m_mr(mr), m_device_mr(device_mr), m_queue(queue) {}
 
 seed_finding::output_type seed_finding::operator()(
     const spacepoint_container_types::const_view& spacepoints_view,
     const sp_grid_const_view& g2_view) const {
 
     // Helper object for the data management.
-    vecmem::copy copy;
+    vecmem::sycl::copy copy(m_queue.queue());
 
     // Get the prefix sum for the spacepoint grid.
     const device::prefix_sum_t sp_grid_prefix_sum =
         device::get_prefix_sum(g2_view._data_view, m_mr.get(), copy);
-    auto sp_grid_prefix_sum_view = vecmem::get_data(sp_grid_prefix_sum);
+    vecmem::data::vector_buffer<device::prefix_sum_element_t> sp_grid_prefix_sum_buff(sp_grid_prefix_sum.size(), m_device_mr.get());
+    copy.setup(sp_grid_prefix_sum_buff);
+    copy(vecmem::get_data(sp_grid_prefix_sum), sp_grid_prefix_sum_buff);
+    vecmem::data::vector_view<device::prefix_sum_element_t> sp_grid_prefix_sum_view(sp_grid_prefix_sum_buff);
 
     // Set up the doublet counter buffer.
     device::doublet_counter_container_types::buffer doublet_counter_buffer =
-        device::make_doublet_counter_buffer(g2_view, copy, m_mr.get());
+        device::make_doublet_counter_buffer(g2_view, copy, m_device_mr.get(), &m_mr.get());
 
     // Calculate the range to run the doublet counting for.
     static constexpr unsigned int doubletCountLocalSize = 32 * 2;
@@ -91,12 +94,15 @@ seed_finding::output_type seed_finding::operator()(
 
     // Set up the doublet buffers.
     device::doublet_buffer_pair doublet_buffers =
-        device::make_doublet_buffers(doublet_counter_buffer, copy, m_mr.get());
+        device::make_doublet_buffers(doublet_counter_buffer, copy, m_device_mr.get(), &m_mr.get());
 
     // Get the prefix sum for the doublet counter buffer.
     const device::prefix_sum_t doublet_prefix_sum =
         device::get_prefix_sum(doublet_counter_buffer.items, m_mr.get(), copy);
-    auto doublet_prefix_sum_view = vecmem::get_data(doublet_prefix_sum);
+    vecmem::data::vector_buffer<device::prefix_sum_element_t> doublet_prefix_sum_buff(doublet_prefix_sum.size(), m_device_mr.get());
+    copy.setup(doublet_prefix_sum_buff);
+    copy(vecmem::get_data(doublet_prefix_sum), doublet_prefix_sum_buff);
+    vecmem::data::vector_view<device::prefix_sum_element_t> doublet_prefix_sum_view(doublet_prefix_sum_buff);
 
     // Calculate the range to run the doublet finding for.
     static constexpr unsigned int doubletFindLocalSize = 32 * 2;
@@ -137,8 +143,8 @@ seed_finding::output_type seed_finding::operator()(
         [](const device::doublet_counter_header& dc) { return dc.m_nMidBot; });
 
     // create the triplet_counter container with the number of doublets
-    triplet_counter_container_buffer tcc_buffer{{nbins, m_mr.get()},
-                                                {mb_buffer_sizes, m_mr.get()}};
+    triplet_counter_container_buffer tcc_buffer{{nbins, m_device_mr.get()},
+                                                {mb_buffer_sizes, m_device_mr.get(), &m_mr.get()}};
     copy.setup(tcc_buffer.headers);
     copy.setup(tcc_buffer.items);
 
@@ -159,8 +165,8 @@ seed_finding::output_type seed_finding::operator()(
     }
 
     // Create triplet container buffer
-    triplet_container_buffer tc_buffer{{nbins, m_mr.get()},
-                                       {n_triplets_per_bin, m_mr.get()}};
+    triplet_container_buffer tc_buffer{{nbins, m_device_mr.get()},
+                                       {n_triplets_per_bin, m_device_mr.get(), &m_mr.get()}};
     copy.setup(tc_buffer.headers);
     copy.setup(tc_buffer.items);
 
@@ -181,7 +187,7 @@ seed_finding::output_type seed_finding::operator()(
     auto n_triplets = std::accumulate(n_triplets_per_bin.begin(),
                                       n_triplets_per_bin.end(), 0);
 
-    vecmem::data::vector_buffer<seed> seed_buffer(n_triplets, 0, m_mr.get());
+    vecmem::data::vector_buffer<seed> seed_buffer(n_triplets, 0, m_device_mr.get());
     copy.setup(seed_buffer);
 
     // seed selecting

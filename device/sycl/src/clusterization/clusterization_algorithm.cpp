@@ -53,14 +53,6 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
                    cell_sizes_plus.begin(),
                    [](std::size_t x) { return x + 1; });
 
-    // cell_container_types::buffer cells_buffer{{num_modules, m_device_mr.get()}, {std::vector<std::size_t>(cell_sizes.begin(), cell_sizes.end()),
-    //                                                                              std::vector<std::size_t>(cell_sizes.begin(), cell_sizes.end()),
-    //                                                                              m_device_mr.get(), &m_mr.get()}};
-    // copy.setup(cells_buffer.headers);
-    // copy.setup(cells_buffer.items);
-    // copy(cells_data.headers, cells_buffer.headers);
-    // copy(cells_data.items, cells_buffer.items);
-
     // Helper container for sparse CCL calculations
     vecmem::data::jagged_vector_buffer<unsigned int> sparse_ccl_indices(
         cell_sizes_plus, m_device_mr.get(), &m_mr.get());
@@ -98,6 +90,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     vecmem::data::vector_buffer<unsigned int> cluster_sizes_buffer(
         *total_clusters, m_device_mr.get());
     copy.setup(cluster_sizes_buffer);
+    copy.memset(cluster_sizes_buffer, 0);
 
     // Cluster counting kernel
     traccc::sycl::cluster_counting(sparse_ccl_indices, cluster_sizes_buffer,
@@ -146,9 +139,11 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     copy.setup(spacepoints_buffer.headers);
     copy.setup(spacepoints_buffer.items);
 
-    // Get the prefix sum of the measurements and copy it to the device buffer
+    // Get the prefix sum of the measurements 
     const device::prefix_sum_t meas_prefix_sum = device::get_prefix_sum(
-        copy.get_sizes(measurements_buffer.items), m_mr.get());
+        measurements_buffer.items, m_mr.get(), copy);
+    
+    // Copy prefix sum to device buffer
     vecmem::data::vector_buffer<device::prefix_sum_element_t>
         meas_prefix_sum_buff(meas_prefix_sum.size(), m_device_mr.get());
     copy.setup(meas_prefix_sum_buff);
