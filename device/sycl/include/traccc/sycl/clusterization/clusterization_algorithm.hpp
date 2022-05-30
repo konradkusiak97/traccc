@@ -8,6 +8,7 @@
 #pragma once
 
 // SYCL library include(s).
+#include "traccc/sycl/utils/memory_resource.hpp"
 #include "traccc/sycl/utils/queue_wrapper.hpp"
 
 // Project include(s).
@@ -35,8 +36,7 @@ class clusterization_algorithm
     ///
     /// @param mr is a struct of memory resources (shared or host & device)
     /// @param queue is the sycl queue for kernel invocation
-    clusterization_algorithm(vecmem::memory_resource& mr,
-                             vecmem::memory_resource& device_mr,
+    clusterization_algorithm(traccc::sycl::memory_resource& mr,
                              queue_wrapper queue);
 
     /// Callable operator for clusterization algorithm
@@ -49,8 +49,7 @@ class clusterization_algorithm
         const cell_container_types::host& cells_per_event) const override;
 
     private:
-    std::reference_wrapper<vecmem::memory_resource> m_mr;
-    std::reference_wrapper<vecmem::memory_resource> m_device_mr;
+    std::reference_wrapper<traccc::sycl::memory_resource> m_mr;
     mutable queue_wrapper m_queue;
     std::unique_ptr<vecmem::copy> m_copy;
 };
