@@ -8,9 +8,13 @@
 #pragma once
 
 // Project include(s).
-#include "traccc/definitions/qualifiers.hpp"
-#include "traccc/device/get_prefix_sum.hpp"
 #include "traccc/edm/cell.hpp"
+#include "traccc/definitions/qualifiers.hpp"
+#include "traccc/clusterization/detail/sparse_ccl.hpp"
+
+// Vecmem include(s).
+#include <vecmem/containers/data/jagged_vector_view.hpp>
+#include <vecmem/containers/data/vector_view.hpp>
 
 namespace traccc::device {
 
@@ -19,17 +23,19 @@ namespace traccc::device {
 /// It saves the cluster indices for each module in a jagged vector
 /// and it counts how many clusters in total were found
 ///
-/// @param parameter-name description
-/// @param parameter-name description
-/// @param parameter-name description
-/// @param parameter-name description
+/// @param[in] globalIndex                  The index of the current thread
+/// @param[in] cells_view                   The cells for each module
+/// @param[out] sparse_ccl_indices_view     Jagged vector that maps cells to corresponding clusters
+/// @param[out] clusters_per_module_view    Vector of numbers of clusters found in each module
 ///
 TRACCC_HOST_DEVICE
 void find_clusters(
+    std::size_t globalIndex,
     const cell_container_types::const_view& cells_view,
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
-    unsigned int& total_clusters,
-    vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
     vecmem::data::vector_view<std::size_t> clusters_per_module_view);
 
 }   // namespace traccc::device
+
+// Include the implementation.
+#include "traccc/clusterization/device/impl/find_clusters.ipp"
