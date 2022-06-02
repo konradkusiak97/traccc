@@ -25,9 +25,11 @@
 
 namespace traccc::sycl {
 
-clusterization_algorithm::clusterization_algorithm(traccc::memory_resource& mr,
-                                                   queue_wrapper queue)
-    : m_mr(mr), m_queue(queue) {}
+clusterization_algorithm::clusterization_algorithm(
+    const traccc::memory_resource& mr, queue_wrapper queue)
+    : m_mr(mr), m_queue(queue) {
+
+}
 
 clusterization_algorithm::output_type clusterization_algorithm::operator()(
     const cell_container_types::host& cells_per_event) const {

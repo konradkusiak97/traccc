@@ -46,7 +46,15 @@ class form_spacepoints;
 
 clusterization_algorithm::clusterization_algorithm(traccc::memory_resource& mr,
                                                    queue_wrapper queue)
-    : m_mr(mr), m_queue(queue) {}
+    : m_mr(mr), m_queue(queue) {
+
+        // Initialize m_copy ptr based on memory resources that were given
+        if (mr.host) {
+            m_copy = std::make_unique<vecmem::sycl::copy>(queue.queue());
+        } else {
+            m_copy = std::make_unique<vecmem::copy>();
+        }
+    }
 
 clusterization_algorithm::output_type clusterization_algorithm::operator()(
     const cell_container_types::host& cells_per_event) const {
@@ -54,11 +62,8 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     // Number of modules
     unsigned int num_modules = cells_per_event.size();
 
-    // Vecmem copy object for moving the data between host and device
-    vecmem::sycl::copy copy(m_queue.queue());
-
     // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, &(m_mr.host));
+    auto cells_data = get_data(cells_per_event, &(m_mr.main));
 
     // Get the sizes of the cells in each module
     auto cell_sizes = copy.get_sizes(cells_data.items);
@@ -73,14 +78,14 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Helper container for sparse CCL calculations
     vecmem::data::jagged_vector_buffer<unsigned int> sparse_ccl_indices_buff(
-        cell_sizes_plus, (m_mr.device ? *(m_mr.device) : m_mr.host),
-        (m_mr.device ? &(m_mr.host) : nullptr));
+        cell_sizes_plus, m_mr.main,
+        m_mr.host);
     copy.setup(sparse_ccl_indices_buff);
 
     // Vector with numbers of found clusters in each module, later transformed
     // into prefix sum vector
     vecmem::data::vector_buffer<std::size_t> cl_per_module_prefix_buff(
-        num_modules, (m_mr.device ? *(m_mr.device) : m_mr.host));
+        num_modules, m_mr.main);
     copy.setup(cl_per_module_prefix_buff);
 
     // Create views to pass to cluster finding kernel
@@ -108,10 +113,10 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Get the prefix sum of the cells and copy it to the device buffer
     const device::prefix_sum_t cells_prefix_sum =
-        device::get_prefix_sum(cell_sizes, m_mr.host);
+        device::get_prefix_sum(cell_sizes, (m_mr.host ? *(m_mr.host) : m_mr.main));
     vecmem::data::vector_buffer<device::prefix_sum_element_t>
         cells_prefix_sum_buff(cells_prefix_sum.size(),
-                              (m_mr.device ? *(m_mr.device) : m_mr.host));
+                              m_mr.main);
     copy.setup(cells_prefix_sum_buff);
     copy(vecmem::get_data(cells_prefix_sum), cells_prefix_sum_buff);
 
@@ -121,7 +126,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     // Copy the sizes of clusters per each module to the host
     // and create a copy of this "clusters per module" vector for other
     // operations in the future
-    vecmem::vector<std::size_t> cl_per_module_prefix_host(&(m_mr.host));
+    vecmem::vector<std::size_t> cl_per_module_prefix_host(&(m_mr.main));
     copy(cl_per_module_prefix_buff, cl_per_module_prefix_host);
     std::vector<std::size_t> clusters_per_module_host(
         cl_per_module_prefix_host.begin(), cl_per_module_prefix_host.end());
@@ -142,7 +147,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Vector of the exact cluster sizes, will be filled in cluster counting
     vecmem::data::vector_buffer<unsigned int> cluster_sizes_buffer(
-        total_clusters, (m_mr.device ? *(m_mr.device) : m_mr.host));
+        total_clusters, m_mr.main);
     copy.setup(cluster_sizes_buffer);
     copy.memset(cluster_sizes_buffer, 0);
 
@@ -171,10 +176,10 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Resizable buffer for the measurements
     measurement_container_types::buffer measurements_buffer{
-        {num_modules, (m_mr.device ? *(m_mr.device) : m_mr.host)},
+        {num_modules, m_mr.main},
         {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         (m_mr.device ? *(m_mr.device) : m_mr.host),
-         (m_mr.device ? &(m_mr.host) : nullptr)}};
+         m_mr.main,
+         m_mr.host}};
     copy.setup(measurements_buffer.headers);
     copy.setup(measurements_buffer.items);
 
@@ -187,11 +192,11 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Cluster container buffer for the clusters and headers (cluster ids)
     cluster_container_types::buffer clusters_buffer{
-        {total_clusters, (m_mr.device ? *(m_mr.device) : m_mr.host)},
+        {total_clusters, m_mr.main},
         {std::vector<std::size_t>(total_clusters, 0),
          std::vector<std::size_t>(cluster_sizes.begin(), cluster_sizes.end()),
-         (m_mr.device ? *(m_mr.device) : m_mr.host),
-         (m_mr.device ? &(m_mr.host) : nullptr)}};
+         m_mr.main,
+         m_mr.host}};
     copy.setup(clusters_buffer.headers);
     copy.setup(clusters_buffer.items);
 
@@ -214,10 +219,10 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Spacepoint container buffer to fill in spacepoint formation
     spacepoint_container_types::buffer spacepoints_buffer{
-        {num_modules, (m_mr.device ? *(m_mr.device) : m_mr.host)},
+        {num_modules, m_mr.main},
         {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         (m_mr.device ? *(m_mr.device) : m_mr.host),
-         (m_mr.device ? &(m_mr.host) : nullptr)}};
+         m_mr.main,
+         m_mr.host}};
     copy.setup(spacepoints_buffer.headers);
     copy.setup(spacepoints_buffer.items);
 
@@ -245,10 +250,10 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Get the prefix sum of the measurements and copy it to the device buffer
     const device::prefix_sum_t meas_prefix_sum = device::get_prefix_sum(
-        copy.get_sizes(measurements_buffer.items), m_mr.host);
+        copy.get_sizes(measurements_buffer.items), (m_mr.host ? *(m_mr.host) : m_mr.main));
     vecmem::data::vector_buffer<device::prefix_sum_element_t>
         meas_prefix_sum_buff(meas_prefix_sum.size(),
-                             (m_mr.device ? *(m_mr.device) : m_mr.host));
+                             m_mr.main);
     copy.setup(meas_prefix_sum_buff);
     copy(vecmem::get_data(meas_prefix_sum), meas_prefix_sum_buff);
 
