@@ -63,7 +63,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     unsigned int num_modules = cells_per_event.size();
 
     // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, &(m_mr.main));
+    auto cells_data = get_data(cells_per_event, (m_mr.host ? m_mr.host : &(m_mr.main)));
 
     // Get the sizes of the cells in each module
     auto cell_sizes = m_copy->get_sizes(cells_data.items);
@@ -124,7 +124,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     // Copy the sizes of clusters per each module to the host
     // and create a copy of this "clusters per module" vector for other
     // operations in the future
-    vecmem::vector<std::size_t> cl_per_module_prefix_host(&(m_mr.main));
+    vecmem::vector<std::size_t> cl_per_module_prefix_host(m_mr.host ? m_mr.host : &(m_mr.main));
     (*m_copy)(cl_per_module_prefix_buff, cl_per_module_prefix_host);
     std::vector<std::size_t> clusters_per_module_host(
         cl_per_module_prefix_host.begin(), cl_per_module_prefix_host.end());
