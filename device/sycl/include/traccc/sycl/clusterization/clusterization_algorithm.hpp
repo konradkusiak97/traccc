@@ -38,7 +38,8 @@ class clusterization_algorithm
     ///
     /// @param mr is a struct of memory resources (shared or host & device)
     /// @param queue is the sycl queue for kernel invocation
-    clusterization_algorithm(traccc::memory_resource& mr, queue_wrapper queue);
+    clusterization_algorithm(const traccc::memory_resource& mr,
+                             queue_wrapper queue);
 
     /// Callable operator for clusterization algorithm
     ///

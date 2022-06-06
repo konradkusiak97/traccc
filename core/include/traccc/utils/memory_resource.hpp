@@ -14,8 +14,12 @@ namespace traccc {
 
 // Simple struct for combining multiple memory resources
 struct memory_resource {
-    vecmem::memory_resource& host;
-    vecmem::memory_resource* device = nullptr;
+
+    // Device or shared memory resource
+    vecmem::memory_resource& main;
+
+    // Optional host accesible memory resource
+    vecmem::memory_resource* host = nullptr;
 };
 
 }  // namespace traccc

@@ -63,10 +63,19 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     unsigned int num_modules = cells_per_event.size();
 
     // Get the view of the cells container
-    auto cells_data = get_data(cells_per_event, (m_mr.host ? m_mr.host : &(m_mr.main)));
+    auto cells_data =
+        get_data(cells_per_event, (m_mr.host ? m_mr.host : &(m_mr.main)));
 
     // Get the sizes of the cells in each module
     auto cell_sizes = m_copy->get_sizes(cells_data.items);
+
+    // Move the cells to device buffer
+    cell_container_types::buffer cells_buffer{
+        {num_modules, m_mr.main}, {cells_data.items, m_mr.main, m_mr.host}};
+    m_copy->setup(cells_buffer.headers);
+    m_copy->setup(cells_buffer.items);
+    (*m_copy)(cells_data.headers, cells_buffer.headers);
+    (*m_copy)(cells_data.items, cells_buffer.items);
 
     // Get the cell sizes with +1 in each entry for sparse ccl indices buffer
     // The +1 is needed to store the number of found clusters at the end of
@@ -88,7 +97,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     m_copy->setup(cl_per_module_prefix_buff);
 
     // Create views to pass to cluster finding kernel
-    const cell_container_types::const_view cells_view(cells_data);
+    const cell_container_types::const_view cells_view(cells_buffer);
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view =
         sparse_ccl_indices_buff;
     vecmem::data::vector_view<std::size_t> cl_per_module_prefix_view =
@@ -124,7 +133,8 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     // Copy the sizes of clusters per each module to the host
     // and create a copy of this "clusters per module" vector for other
     // operations in the future
-    vecmem::vector<std::size_t> cl_per_module_prefix_host(m_mr.host ? m_mr.host : &(m_mr.main));
+    vecmem::vector<std::size_t> cl_per_module_prefix_host(
+        m_mr.host ? m_mr.host : &(m_mr.main));
     (*m_copy)(cl_per_module_prefix_buff, cl_per_module_prefix_host);
     std::vector<std::size_t> clusters_per_module_host(
         cl_per_module_prefix_host.begin(), cl_per_module_prefix_host.end());
@@ -172,14 +182,6 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
                 });
         });
 
-    // Resizable buffer for the measurements
-    measurement_container_types::buffer measurements_buffer{
-        {num_modules, m_mr.main},
-        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
-         m_mr.main, m_mr.host}};
-    m_copy->setup(measurements_buffer.headers);
-    m_copy->setup(measurements_buffer.items);
-
     // Wait here for the cluster counting kernel to finish
     cluster_counting_kernel.wait_and_throw();
 
@@ -212,6 +214,14 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
                         cells_prefix_sum_view, clusters_view);
                 });
         });
+
+    // Resizable buffer for the measurements
+    measurement_container_types::buffer measurements_buffer{
+        {num_modules, m_mr.main},
+        {std::vector<std::size_t>(num_modules, 0), clusters_per_module_host,
+         m_mr.main, m_mr.host}};
+    m_copy->setup(measurements_buffer.headers);
+    m_copy->setup(measurements_buffer.items);
 
     // Spacepoint container buffer to fill in spacepoint formation
     spacepoint_container_types::buffer spacepoints_buffer{
