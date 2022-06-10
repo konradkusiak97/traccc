@@ -39,7 +39,7 @@
 #include <vecmem/memory/sycl/shared_memory_resource.hpp>
 #include <vecmem/utils/sycl/copy.hpp>
 
-// tracc library include(s).
+// Project include(s).
 #include "traccc/utils/memory_resource.hpp"
 
 // System include(s).
@@ -115,8 +115,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
     traccc::track_params_estimation tp(host_mr);
 
     traccc::sycl::clusterization_algorithm ca_sycl(mr, &q);
-    traccc::sycl::seeding_algorithm sa_sycl(shared_mr, &q);
-    traccc::sycl::track_params_estimation tp_sycl(shared_mr, &q);
+    traccc::sycl::seeding_algorithm sa_sycl(mr, &q);
+    traccc::sycl::track_params_estimation tp_sycl(mr, &q);
 
     // performance writer
     traccc::seeding_performance_writer sd_performance_writer(
@@ -143,6 +143,11 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
             traccc::read_cells_from_event(
                 event, i_cfg.cell_directory, common_opts.input_data_format,
                 surface_transforms, digi_cfg, host_mr);
+
+        traccc::cell_container_types::host cells_per_event_sycl =
+            traccc::read_cells_from_event(
+                event, i_cfg.cell_directory, common_opts.input_data_format,
+                surface_transforms, digi_cfg, (mr.host ? *(mr.host) : mr.main));
 
         /*time*/ auto end_file_reading_cpu = std::chrono::system_clock::now();
         /*time*/ std::chrono::duration<double> time_file_reading_cpu =
@@ -183,7 +188,7 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
         /*time*/ auto start_clusterization_sycl =
             std::chrono::system_clock::now();
 
-        auto spacepoints_sycl_buff = ca_sycl(cells_per_event_sycl);
+        auto spacepoints_sycl_buffer = ca_sycl(cells_per_event_sycl);
 
         /*time*/ auto end_clusterization_sycl =
             std::chrono::system_clock::now();
@@ -255,12 +260,12 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
         // Copy the seeds and spacepoints to the host for comparisons
         vecmem::sycl::copy copy(&q);
         traccc::spacepoint_container_types::host spacepoints_per_event_sycl;
-        // traccc::host_seed_collection seeds_sycl;
-        copy(spacepoints_sycl_buff.headers,
+        traccc::host_seed_collection seeds_sycl;
+        copy(spacepoints_sycl_buffer.headers,
              spacepoints_per_event_sycl.get_headers());
         copy(spacepoints_sycl_buff.items,
              spacepoints_per_event_sycl.get_items());
-        // copy(seeds_sycl_buff, seeds_sycl);
+        copy(seeds_sycl_buffer, seeds_sycl);
 
         /*----------------------------------
           compare cpu and sycl result
