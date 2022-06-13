@@ -20,9 +20,9 @@ namespace traccc::sycl {
 class WeightUpdate {
     public:
     WeightUpdate(const seedfilter_config& filter_config,
-                 sp_grid_const_view internal_sp_view,
-                 triplet_counter_container_view triplet_counter_view,
-                 triplet_container_view triplet_view,
+                 const sp_grid_const_view& internal_sp_view,
+                 const triplet_counter_container_view& triplet_counter_view,
+                 triplet_container_view& triplet_view,
                  local_accessor<scalar> localMem)
         : m_filter_config(filter_config),
           m_internal_sp_view(internal_sp_view),
@@ -176,7 +176,7 @@ class WeightUpdate {
 void weight_updating(const seedfilter_config& filter_config,
                      const vecmem::vector<triplet_per_bin>& tc_headers,
                      const sp_grid_const_view& internal_sp_view,
-                     triplet_counter_container_view tcc_view,
+                     const triplet_counter_container_view& tcc_view,
                      triplet_container_view tc_view, queue_wrapper queue) {
 
     // The thread-block is desinged to make each thread find triplets per

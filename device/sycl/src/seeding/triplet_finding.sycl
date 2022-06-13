@@ -23,15 +23,15 @@ namespace traccc::sycl {
 
 class TripletFind {
     public:
-    TripletFind(const seedfinder_config config,
-                const seedfilter_config filter_config,
-                sp_grid_const_view internal_sp_view,
-                device::doublet_counter_container_types::const_view
+    TripletFind(const seedfinder_config& config,
+                const seedfilter_config& filter_config,
+                const sp_grid_const_view& internal_sp_view,
+                const device::doublet_counter_container_types::const_view&
                     doublet_counter_view,
-                doublet_container_view mid_bot_doublet_view,
-                doublet_container_view mid_top_doublet_view,
-                triplet_counter_container_view triplet_counter_view,
-                triplet_container_view triplet_view,
+                const doublet_container_view& mid_bot_doublet_view,
+                const doublet_container_view& mid_top_doublet_view,
+                const triplet_counter_container_view& triplet_counter_view,
+                triplet_container_view& triplet_view,
                 local_accessor<int> localMem)
         : m_config(config),
           m_filter_config(filter_config),
@@ -265,9 +265,9 @@ void triplet_finding(const seedfinder_config& config,
                      const sp_grid_const_view& internal_sp,
                      const device::doublet_counter_container_types::const_view&
                          doublet_counter_container,
-                     doublet_container_view mid_bot_doublet_container,
-                     doublet_container_view mid_top_doublet_container,
-                     triplet_counter_container_view tcc_view,
+                     const doublet_container_view& mid_bot_doublet_container,
+                     const doublet_container_view& mid_top_doublet_container,
+                     const triplet_counter_container_view& tcc_view,
                      triplet_container_view tc_view, queue_wrapper queue) {
 
     // The thread-block is desinged to make each thread find triplets per

@@ -60,6 +60,10 @@ traccc::spacepoint_grid_config default_spacepoint_grid_config() {
 }
 
 }  // namespace
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 namespace traccc::sycl {
 
 /// Main algorithm for performing the track seeding using oneAPI/SYCL

@@ -55,13 +55,13 @@ static int min_elem(const local_accessor<triplet>& arr, const int& begin_idx,
 // Kernel class for seed selecting
 class SeedSelect {
     public:
-    SeedSelect(const seedfilter_config filter_config,
-               spacepoint_container_types::const_view spacepoints_view,
-               sp_grid_const_view internal_sp_view,
-               device::doublet_counter_container_types::const_view
+    SeedSelect(const seedfilter_config& filter_config,
+               const spacepoint_container_types::const_view& spacepoints_view,
+               const sp_grid_const_view& internal_sp_view,
+               const device::doublet_counter_container_types::const_view&
                    doublet_counter_view,
-               triplet_counter_container_view triplet_counter_view,
-               triplet_container_view triplet_view,
+               const triplet_counter_container_view& triplet_counter_view,
+               const triplet_container_view& triplet_view,
                vecmem::data::vector_buffer<seed>& seed_buffer,
                local_accessor<triplet> localMem)
         : m_filter_config(filter_config),
@@ -260,7 +260,8 @@ void seed_selecting(
     const sp_grid_const_view& internal_sp,
     const device::doublet_counter_container_types::const_view&
         doublet_counter_container,
-    triplet_counter_container_view tcc_view, triplet_container_view tc_view,
+    const triplet_counter_container_view& tcc_view,
+    const triplet_container_view& tc_view,
     vecmem::data::vector_buffer<seed>& seed_buffer, queue_wrapper queue) {
 
     // The thread-block is desinged to make each thread find triplets per

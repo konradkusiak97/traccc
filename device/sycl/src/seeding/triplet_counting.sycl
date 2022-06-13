@@ -25,12 +25,12 @@ namespace traccc::sycl {
 class TripletCount {
     public:
     TripletCount(const seedfinder_config config,
-                 sp_grid_const_view internal_sp_view,
-                 device::doublet_counter_container_types::const_view
+                 const sp_grid_const_view& internal_sp_view,
+                 const device::doublet_counter_container_types::const_view&
                      doublet_counter_view,
-                 doublet_container_view mid_bot_doublet_view,
-                 doublet_container_view mid_top_doublet_view,
-                 triplet_counter_container_view triplet_counter_view)
+                 const doublet_container_view& mid_bot_doublet_view,
+                 const doublet_container_view& mid_top_doublet_view,
+                 triplet_counter_container_view& triplet_counter_view)
         : m_config(config),
           m_internal_sp_view(internal_sp_view),
           m_doublet_counter_view(doublet_counter_view),
@@ -190,8 +190,8 @@ void triplet_counting(const seedfinder_config& config,
                       const sp_grid_const_view& internal_sp,
                       const device::doublet_counter_container_types::const_view&
                           doublet_counter_container,
-                      doublet_container_view mid_bot_doublet_container,
-                      doublet_container_view mid_top_doublet_container,
+                      const doublet_container_view& mid_bot_doublet_container,
+                      const doublet_container_view& mid_top_doublet_container,
                       triplet_counter_container_view tcc_view,
                       queue_wrapper queue) {
 
