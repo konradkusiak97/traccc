@@ -17,8 +17,8 @@
 #include "traccc/options/handle_argument_errors.hpp"
 
 // vecmem
-#include <vecmem/memory/cuda/managed_memory_resource.hpp>
 #include <vecmem/memory/cuda/device_memory_resource.hpp>
+#include <vecmem/memory/cuda/managed_memory_resource.hpp>
 #include <vecmem/utils/cuda/copy.hpp>
 
 #include "traccc/edm/cell.hpp"
@@ -50,13 +50,12 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
 
         // Read the cells from the relevant event file
         traccc::cell_container_types::host cells_per_event =
-            traccc::read_cells_from_event(
-                event, i_cfg.cell_directory, common_opts.input_data_format,
-                surface_transforms, digi_cfg, mng_mr);
+            traccc::read_cells_from_event(event, i_cfg.cell_directory,
+                                          common_opts.input_data_format,
+                                          surface_transforms, digi_cfg, mng_mr);
 
         vecmem::cuda::copy copy;
-        auto cells_data =
-            traccc::get_data(cells_per_event, &mng_mr); 
+        auto cells_data = traccc::get_data(cells_per_event, &mng_mr);
 
         unsigned int num_modules = cells_per_event.size();
 
@@ -64,11 +63,15 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
             {num_modules, device_mr}, {cells_data.items, device_mr, &mng_mr}};
         copy.setup(cells_buffer.headers);
         copy.setup(cells_buffer.items);
-        copy(cells_data.headers, cells_buffer.headers);
-        copy(cells_data.items, cells_buffer.items);
-}
+        copy(cells_data.headers, cells_buffer.headers,
+             vecmem::copy::type::copy_type::host_to_device);
+        copy(cells_data.items, cells_buffer.items,
+             vecmem::copy::type::copy_type::host_to_device);
 
-return 0;
+        std::cout << "event " << event << " success\n";
+    }
+
+    return 0;
 }
 
 // The main routine
