@@ -100,8 +100,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
 
     traccc::sycl::clusterization_algorithm ca_sycl(mr, &q);
     // traccc::sycl::seed_finding sf_sycl(default_seedfinder_config(), mr, &q);
-    traccc::sycl::spacepoint_binning sb_sycl(
-        default_seedfinder_config(), default_spacepoint_grid_config(), mr, &q);
+    // traccc::sycl::spacepoint_binning sb_sycl(
+    //     default_seedfinder_config(), default_spacepoint_grid_config(), mr, &q);
 
     // Loop over events
     for (unsigned int event = common_opts.skip;

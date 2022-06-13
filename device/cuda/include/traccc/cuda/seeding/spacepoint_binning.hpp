@@ -12,48 +12,34 @@
 #include "traccc/seeding/detail/seeding_config.hpp"
 #include "traccc/seeding/detail/spacepoint_grid.hpp"
 #include "traccc/utils/algorithm.hpp"
-#include "traccc/utils/memory_resource.hpp"
 
 // VecMem include(s).
-#include <vecmem/utils/copy.hpp>
+#include <vecmem/memory/memory_resource.hpp>
 
 // System include(s).
 #include <functional>
-#include <memory>
 #include <utility>
 
 namespace traccc::cuda {
 
 /// Spacepoing binning executed on a CUDA device
 class spacepoint_binning : public algorithm<sp_grid_buffer(
-                               const spacepoint_container_types::const_view&)>,
-                           public algorithm<sp_grid_buffer(
-                               const spacepoint_container_types::buffer&)> {
+                               const spacepoint_container_types::host&)> {
 
     public:
     /// Constructor for the algorithm
     spacepoint_binning(const seedfinder_config& config,
                        const spacepoint_grid_config& grid_config,
-                       const traccc::memory_resource& mr);
+                       vecmem::memory_resource& mr);
 
-    /// Function executing the algorithm with a a view of spacepoints
-    sp_grid_buffer operator()(const spacepoint_container_types::const_view&
-                                  spacepoints_view) const override;
-
-    /// Function executing the algorithm with spacepoint buffer
-    sp_grid_buffer operator()(const spacepoint_container_types::buffer&
-                                  spacepoints_buffer) const override;
+    /// Function executing the algorithm
+    sp_grid_buffer operator()(
+        const spacepoint_container_types::host& spacepoints) const override;
 
     private:
-    /// Implementation for the public spacepoint binning operators
-    sp_grid_buffer operator()(
-        const spacepoint_container_types::const_view spacepoints_view,
-        const std::vector<unsigned int>& sp_sizes) const;
-
     seedfinder_config m_config;
     std::pair<sp_grid::axis_p0_type, sp_grid::axis_p1_type> m_axes;
-    traccc::memory_resource m_mr;
-    std::unique_ptr<vecmem::copy> m_copy;
+    std::reference_wrapper<vecmem::memory_resource> m_mr;
 
 };  // class spacepoint_binning
 

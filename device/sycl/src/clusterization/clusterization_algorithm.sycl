@@ -66,7 +66,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Get the view of the cells container
     auto cells_data =
-        get_data(cells_per_event, (m_mr.host ? m_mr.host : &(m_mr.main)));
+        get_data(cells_per_event);
 
     // Get the sizes of the cells in each module
     auto cell_sizes = m_copy->get_sizes(cells_data.items);
@@ -101,7 +101,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     m_copy->setup(cl_per_module_prefix_buff);
 
     // Create views to pass to cluster finding kernel
-    const cell_container_types::const_view cells_view(cells_data);
+    const cell_container_types::const_view cells_view(cells_buffer);
     vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view =
         sparse_ccl_indices_buff;
     vecmem::data::vector_view<std::size_t> cl_per_module_prefix_view =
@@ -177,7 +177,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
                                                  localSize);
 
     // Run cluster counting kernel
-    auto cluster_counting_kernel = details::get_queue(m_queue).submit(
+    details::get_queue(m_queue).submit(
         [&ndrange, &sparse_ccl_indices_view, &cl_per_module_prefix_view,
          &cells_prefix_sum_view, &cluster_sizes_view](::sycl::handler& h) {
             h.parallel_for<kernels::count_cluster_cells>(
@@ -187,10 +187,7 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
                         cl_per_module_prefix_view, cells_prefix_sum_view,
                         cluster_sizes_view);
                 });
-        });
-
-    // Wait here for the cluster counting kernel to finish
-    cluster_counting_kernel.wait_and_throw();
+        }).wait_and_throw();
 
     // Copy cluster sizes back to the host
     std::vector<unsigned int> cluster_sizes;

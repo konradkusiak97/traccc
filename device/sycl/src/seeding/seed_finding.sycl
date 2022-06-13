@@ -80,11 +80,6 @@ vecmem::data::vector_buffer<seed> seed_finding::operator()(
     const device::prefix_sum_t sp_grid_prefix_sum = device::get_prefix_sum(
         grid_sizes, (m_mr.host ? *(m_mr.host) : m_mr.main));
 
-    // Set up the doublet counter buffer.
-    device::doublet_counter_container_types::buffer doublet_counter_buffer =
-        device::make_doublet_counter_buffer(grid_sizes, *m_copy, m_mr.main,
-                                            m_mr.host);
-
     // Set up the buffer of the prefix sum and its view
     vecmem::data::vector_buffer<device::prefix_sum_element_t>
         sp_grid_prefix_sum_buff(sp_grid_prefix_sum.size(), m_mr.main);
@@ -92,6 +87,11 @@ vecmem::data::vector_buffer<seed> seed_finding::operator()(
     (*m_copy)(vecmem::get_data(sp_grid_prefix_sum), sp_grid_prefix_sum_buff);
     vecmem::data::vector_view<device::prefix_sum_element_t>
         sp_grid_prefix_sum_view = sp_grid_prefix_sum_buff;
+
+    // Set up the doublet counter buffer.
+    device::doublet_counter_container_types::buffer doublet_counter_buffer =
+        device::make_doublet_counter_buffer(grid_sizes, *m_copy, m_mr.main,
+                                            m_mr.host);
 
     // Calculate the range to run the doublet counting for.
     static constexpr unsigned int doubletCountLocalSize = 32 * 2;
