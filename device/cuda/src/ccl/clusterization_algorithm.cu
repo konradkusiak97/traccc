@@ -5,10 +5,8 @@
  * Mozilla Public License Version 2.0
  */
 
-// Sycl library include(s).
-#include "../utils/get_queue.hpp"
-#include "traccc/sycl/clusterization/clusterization_algorithm.hpp"
-#include "traccc/sycl/utils/calculate1DimNdRange.hpp"
+#include "traccc/cuda/ccl/clusterization_algorithm.hpp"
+#include "traccc/cuda/utils/definitions.hpp"
 
 // Project include(s)
 #include "traccc/clusterization/device/connect_components.hpp"
@@ -19,40 +17,82 @@
 #include "traccc/device/get_prefix_sum.hpp"
 
 // Vecmem include(s).
-#include <vecmem/utils/sycl/copy.hpp>
+#include <vecmem/utils/cuda/copy.hpp>
 
 // System include(s).
 #include <algorithm>
-#include <fstream>
-#include <iostream>
 
-namespace traccc::sycl {
+namespace traccc::cuda {
 namespace kernels {
 
 /// Class identifying the kernel running @c traccc::device::find_clusters
-class find_clusters;
+__global__ void find_clusters(
+    const cell_container_types::const_view cells_view,
+    vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
+    vecmem::data::vector_view<std::size_t> clusters_per_module_view) {
+
+    device::find_clusters(threadIdx.x + blockIdx.x * blockDim.x, cells_view,
+                          sparse_ccl_indices_view, clusters_per_module_view);
+}
 
 /// Class identifying the kernel running @c traccc::device::count_cluster_cells
-class count_cluster_cells;
+__global__ void count_cluster_cells(
+    vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
+    vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
+    vecmem::data::vector_view<const device::prefix_sum_element_t>
+        cells_prefix_sum_view,
+    vecmem::data::vector_view<unsigned int> cluster_sizes_view) {
+
+    device::count_cluster_cells(
+        threadIdx.x + blockIdx.x * blockDim.x, sparse_ccl_indices_view,
+        cluster_prefix_sum_view, cells_prefix_sum_view, cluster_sizes_view);
+}
 
 /// Class identifying the kernel running @c traccc::device::connect_components
-class connect_components;
+__global__ void connect_components(
+    const cell_container_types::const_view cells_view,
+    vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view,
+    vecmem::data::vector_view<std::size_t> cluster_prefix_sum_view,
+    vecmem::data::vector_view<const device::prefix_sum_element_t>
+        cells_prefix_sum_view,
+    cluster_container_types::view clusters_view) {
+
+    device::connect_components(threadIdx.x + blockIdx.x * blockDim.x,
+                               cells_view, sparse_ccl_indices_view,
+                               cluster_prefix_sum_view, cells_prefix_sum_view,
+                               clusters_view);
+}
 
 /// Class identifying the kernel running @c traccc::device::create_measurements
-class create_measurements;
+__global__ void create_measurements(
+    cluster_container_types::const_view clusters_view,
+    const cell_container_types::const_view cells_view,
+    measurement_container_types::view measurements_view) {
 
-/// Class identifying the kernel running @c traccc::device::form_spacepoints
-class form_spacepoints;
+    device::create_measurements(threadIdx.x + blockIdx.x * blockDim.x,
+                                clusters_view, cells_view, measurements_view);
+}
+
+__global__ void form_spacepoints(
+    measurement_container_types::const_view measurements_view,
+    vecmem::data::vector_view<const device::prefix_sum_element_t>
+        measurements_prefix_sum_view,
+    spacepoint_container_types::view spacepoints_view) {
+
+    device::form_spacepoints(threadIdx.x + blockIdx.x * blockDim.x,
+                             measurements_view, measurements_prefix_sum_view,
+                             spacepoints_view);
+}
 
 }  // namespace kernels
 
 clusterization_algorithm::clusterization_algorithm(
-    const traccc::memory_resource& mr, queue_wrapper queue)
-    : m_mr(mr), m_queue(queue) {
+    const traccc::memory_resource& mr)
+    : m_mr(mr) {
 
     // Initialize m_copy ptr based on memory resources that were given
     if (mr.host) {
-        m_copy = std::make_unique<vecmem::sycl::copy>(queue.queue());
+        m_copy = std::make_unique<vecmem::cuda::copy>();
     } else {
         m_copy = std::make_unique<vecmem::copy>();
     }
@@ -72,14 +112,15 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     auto cell_sizes = m_copy->get_sizes(cells_data.items);
 
     // Move the cells to device buffer
-    cell_container_types::buffer cells_buffer{
-        {num_modules, m_mr.main}, {cells_data.items, m_mr.main, m_mr.host}};
-    m_copy->setup(cells_buffer.headers);
-    m_copy->setup(cells_buffer.items);
-    (*m_copy)(cells_data.headers, cells_buffer.headers,
-              vecmem::copy::type::copy_type::host_to_device);
-    (*m_copy)(cells_data.items, cells_buffer.items,
-              vecmem::copy::type::copy_type::host_to_device);
+    // cell_container_types::buffer cells_buffer{
+    //     {num_modules, m_mr.main}, {cells_my_view.items, m_mr.main,
+    //     m_mr.host}};
+    // m_copy->setup(cells_buffer.headers);
+    // m_copy->setup(cells_buffer.items);
+    // (*m_copy)(cells_my_view.headers, cells_buffer.headers,
+    // vecmem::copy::type::copy_type::host_to_device);
+    // (*m_copy)(cells_my_view.items, cells_buffer.items,
+    // vecmem::copy::type::copy_type::host_to_device);
 
     // Get the cell sizes with +1 in each entry for sparse ccl indices buffer
     // The +1 is needed to store the number of found clusters at the end of
@@ -100,28 +141,15 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
         num_modules, m_mr.main);
     m_copy->setup(cl_per_module_prefix_buff);
 
-    // Create views to pass to cluster finding kernel
-    const cell_container_types::const_view cells_view(cells_data);
-    vecmem::data::jagged_vector_view<unsigned int> sparse_ccl_indices_view =
-        sparse_ccl_indices_buff;
-    vecmem::data::vector_view<std::size_t> cl_per_module_prefix_view =
-        cl_per_module_prefix_buff;
-
     // Calculate nd_range to run cluster finding
     std::size_t localSize = 64;
-    auto ndrange = traccc::sycl::calculate1DimNdRange(num_modules, localSize);
+    std::size_t num_blocks = (num_modules + localSize - 1) / localSize;
 
     // Run cluster finding kernel
-    auto cluster_finding_kernel = details::get_queue(m_queue).submit(
-        [&ndrange, &cells_view, &sparse_ccl_indices_view,
-         &cl_per_module_prefix_view](::sycl::handler& h) {
-            h.parallel_for<kernels::find_clusters>(
-                ndrange, [=](::sycl::nd_item<1> item) {
-                    device::find_clusters(item.get_global_linear_id(),
-                                          cells_view, sparse_ccl_indices_view,
-                                          cl_per_module_prefix_view);
-                });
-        });
+    kernels::find_clusters<<<num_blocks, localSize>>>(
+        cells_data, sparse_ccl_indices_buff, cl_per_module_prefix_buff);
+    CUDA_ERROR_CHECK(cudaGetLastError());
+    CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     // Get the prefix sum of the cells and copy it to the device buffer
     const device::prefix_sum_t cells_prefix_sum = device::get_prefix_sum(
@@ -133,7 +161,6 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
               vecmem::copy::type::copy_type::host_to_device);
 
     // Wait here for the cluster_finding kernel to finish
-    cluster_finding_kernel.wait_and_throw();
 
     // Copy the sizes of clusters per each module to the host
     // and create a copy of this "clusters per module" vector for other
@@ -166,31 +193,13 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     m_copy->setup(cluster_sizes_buffer);
     m_copy->memset(cluster_sizes_buffer, 0);
 
-    // Create views to pass to cluster counting kernel
-    vecmem::data::vector_view<const device::prefix_sum_element_t>
-        cells_prefix_sum_view = cells_prefix_sum_buff;
-    vecmem::data::vector_view<unsigned int> cluster_sizes_view =
-        cluster_sizes_buffer;
-
-    // Calculate nd_range to run cluster counting (localSize = 64)
-    ndrange = traccc::sycl::calculate1DimNdRange(cells_prefix_sum_view.size(),
-                                                 localSize);
-
     // Run cluster counting kernel
-    auto cluster_counting_kernel = details::get_queue(m_queue).submit(
-        [&ndrange, &sparse_ccl_indices_view, &cl_per_module_prefix_view,
-         &cells_prefix_sum_view, &cluster_sizes_view](::sycl::handler& h) {
-            h.parallel_for<kernels::count_cluster_cells>(
-                ndrange, [=](::sycl::nd_item<1> item) {
-                    device::count_cluster_cells(
-                        item.get_global_linear_id(), sparse_ccl_indices_view,
-                        cl_per_module_prefix_view, cells_prefix_sum_view,
-                        cluster_sizes_view);
-                });
-        });
-
-    // Wait here for the cluster counting kernel to finish
-    cluster_counting_kernel.wait_and_throw();
+    num_blocks = (cells_prefix_sum.size() + localSize - 1) / localSize;
+    kernels::count_cluster_cells<<<num_blocks, localSize>>>(
+        sparse_ccl_indices_buff, cl_per_module_prefix_buff,
+        cells_prefix_sum_buff, cluster_sizes_buffer);
+    CUDA_ERROR_CHECK(cudaGetLastError());
+    CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     // Copy cluster sizes back to the host
     std::vector<unsigned int> cluster_sizes;
@@ -206,22 +215,12 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     m_copy->setup(clusters_buffer.headers);
     m_copy->setup(clusters_buffer.items);
 
-    // Create views to pass to component connection kernel
-    cluster_container_types::view clusters_view = clusters_buffer;
-
     // Run component connection kernel (nd_range same as before)
-    auto component_connection_kernel = details::get_queue(m_queue).submit(
-        [&ndrange, &cells_view, &sparse_ccl_indices_view,
-         &cl_per_module_prefix_view, &cells_prefix_sum_view,
-         &clusters_view](::sycl::handler& h) {
-            h.parallel_for<kernels::connect_components>(
-                ndrange, [=](::sycl::nd_item<1> item) {
-                    device::connect_components(
-                        item.get_global_linear_id(), cells_view,
-                        sparse_ccl_indices_view, cl_per_module_prefix_view,
-                        cells_prefix_sum_view, clusters_view);
-                });
-        });
+    kernels::connect_components<<<num_blocks, localSize>>>(
+        cells_data, sparse_ccl_indices_buff, cl_per_module_prefix_buff,
+        cells_prefix_sum_buff, clusters_buffer);
+    CUDA_ERROR_CHECK(cudaGetLastError());
+    CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     // Resizable buffer for the measurements
     measurement_container_types::buffer measurements_buffer{
@@ -240,26 +239,13 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     m_copy->setup(spacepoints_buffer.items);
 
     // Wait here for the component_connection kernel to finish
-    component_connection_kernel.wait_and_throw();
-
-    // Create views to pass to measurement creation kernel
-    measurement_container_types::view measurements_view = measurements_buffer;
-
-    // Calculate nd_range to run measurement creation (localSize = 64)
-    ndrange = calculate1DimNdRange(clusters_view.headers.size(), localSize);
 
     // Run measurement_creation kernel
-    details::get_queue(m_queue)
-        .submit([&ndrange, &cells_view, &clusters_view,
-                 &measurements_view](::sycl::handler& h) {
-            h.parallel_for<kernels::create_measurements>(
-                ndrange, [=](::sycl::nd_item<1> item) {
-                    device::create_measurements(item.get_global_linear_id(),
-                                                clusters_view, cells_view,
-                                                measurements_view);
-                });
-        })
-        .wait_and_throw();
+    num_blocks = (total_clusters + localSize - 1) / localSize;
+    kernels::create_measurements<<<num_blocks, localSize>>>(
+        clusters_buffer, cells_data, measurements_buffer);
+    CUDA_ERROR_CHECK(cudaGetLastError());
+    CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     // Get the prefix sum of the measurements and copy it to the device buffer
     const device::prefix_sum_t meas_prefix_sum =
@@ -271,25 +257,13 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     (*m_copy)(vecmem::get_data(meas_prefix_sum), meas_prefix_sum_buff,
               vecmem::copy::type::copy_type::host_to_device);
 
-    // Create views to run spacepoint formation
-    vecmem::data::vector_view<const device::prefix_sum_element_t>
-        meas_prefix_sum_view = meas_prefix_sum_buff;
-    spacepoint_container_types::view spacepoints_view = spacepoints_buffer;
-
     // Run spacepoint formation kernel (ndrange same as before)
-    details::get_queue(m_queue)
-        .submit([&ndrange, &measurements_view, &meas_prefix_sum_view,
-                 &spacepoints_view](::sycl::handler& h) {
-            h.parallel_for<kernels::form_spacepoints>(
-                ndrange, [=](::sycl::nd_item<1> item) {
-                    device::form_spacepoints(
-                        item.get_global_linear_id(), measurements_view,
-                        meas_prefix_sum_view, spacepoints_view);
-                });
-        })
-        .wait_and_throw();
+    kernels::form_spacepoints<<<num_blocks, localSize>>>(
+        measurements_buffer, meas_prefix_sum_buff, spacepoints_buffer);
+    CUDA_ERROR_CHECK(cudaGetLastError());
+    CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     return spacepoints_buffer;
 }
 
-}  // namespace traccc::sycl
+}  // namespace traccc::cuda

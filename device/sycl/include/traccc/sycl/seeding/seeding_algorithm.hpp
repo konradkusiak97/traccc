@@ -23,6 +23,43 @@
 // traccc library include(s).
 #include "traccc/utils/memory_resource.hpp"
 
+namespace {
+
+/// Helper function that would produce a default seed-finder configuration
+traccc::seedfinder_config default_seedfinder_config() {
+
+    traccc::seedfinder_config config;
+    config.highland = 13.6 * std::sqrt(config.radLengthPerSeed) *
+                      (1 + 0.038 * std::log(config.radLengthPerSeed));
+    float maxScatteringAngle = config.highland / config.minPt;
+    config.maxScatteringAngle2 = maxScatteringAngle * maxScatteringAngle;
+    // helix radius in homogeneous magnetic field. Units are Kilotesla, MeV
+    // and millimeter
+    // TODO: change using ACTS units
+    config.pTPerHelixRadius = 300. * config.bFieldInZ;
+    config.minHelixDiameter2 =
+        std::pow(config.minPt * 2 / config.pTPerHelixRadius, 2);
+    config.pT2perRadius =
+        std::pow(config.highland / config.pTPerHelixRadius, 2);
+    return config;
+}
+
+/// Helper function that would produce a default spacepoint grid configuration
+traccc::spacepoint_grid_config default_spacepoint_grid_config() {
+
+    traccc::seedfinder_config config = default_seedfinder_config();
+    traccc::spacepoint_grid_config grid_config;
+    grid_config.bFieldInZ = config.bFieldInZ;
+    grid_config.minPt = config.minPt;
+    grid_config.rMax = config.rMax;
+    grid_config.zMax = config.zMax;
+    grid_config.zMin = config.zMin;
+    grid_config.deltaRMax = config.deltaRMax;
+    grid_config.cotThetaMax = config.cotThetaMax;
+    return grid_config;
+}
+
+}  // namespace
 namespace traccc::sycl {
 
 /// Main algorithm for performing the track seeding using oneAPI/SYCL

@@ -50,7 +50,7 @@ class spacepoint_binning : public algorithm<sp_grid_buffer(
     private:
     /// Implementation for the public spacepoint binning operators
     sp_grid_buffer operator()(
-        const spacepoint_container_types::const_view& spacepoints_view,
+        const spacepoint_container_types::const_view spacepoints_view,
         const std::vector<unsigned int>& sp_sizes) const;
 
     /// Member variables

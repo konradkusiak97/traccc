@@ -26,3 +26,9 @@ traccc_add_executable( seq_example_sycl "seq_example_sycl.sycl"
                   traccc::core traccc::sycl traccc::performance )
 
 target_compile_definitions( traccc_seq_example_sycl PRIVATE EIGEN_NO_CUDA )
+
+traccc_add_executable( syclGridExample "syclGridExample.sycl"
+   LINK_LIBRARIES traccc::options vecmem::core vecmem::sycl traccc::io
+                  traccc::core traccc::sycl traccc::performance )
+
+target_compile_definitions( traccc_syclGridExample PRIVATE EIGEN_NO_CUDA )

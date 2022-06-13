@@ -28,14 +28,20 @@
 #include "traccc/options/handle_argument_errors.hpp"
 
 // vecmem
+#include <vecmem/memory/cuda/device_memory_resource.hpp>
+#include <vecmem/memory/cuda/host_memory_resource.hpp>
 #include <vecmem/memory/cuda/managed_memory_resource.hpp>
 #include <vecmem/memory/host_memory_resource.hpp>
 
 // System include(s).
 #include <chrono>
 #include <exception>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <vecmem/utils/cuda/copy.hpp>
+
+#include "traccc/edm/cell.hpp"
 
 namespace po = boost::program_options;
 
@@ -72,6 +78,8 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
     // Memory resource used by the EDM.
     vecmem::host_memory_resource host_mr;
     vecmem::cuda::managed_memory_resource mng_mr;
+    vecmem::cuda::device_memory_resource device_mr;
+    vecmem::cuda::host_memory_resource cuda_host_mr;
 
     traccc::clusterization_algorithm ca(mng_mr);
     traccc::spacepoint_formation sf(mng_mr);
@@ -100,12 +108,36 @@ int seq_run(const traccc::full_tracking_input_config& i_cfg,
             traccc::read_cells_from_event(
                 event, i_cfg.cell_directory, common_opts.input_data_format,
                 surface_transforms, digi_cfg, host_mr);
+        traccc::cell_container_types::host cells_per_event_cuda =
+            traccc::read_cells_from_event(event, i_cfg.cell_directory,
+                                          common_opts.input_data_format,
+                                          surface_transforms, digi_cfg, mng_mr);
 
         /*time*/ auto end_file_reading_cpu = std::chrono::system_clock::now();
         /*time*/ std::chrono::duration<double> time_file_reading_cpu =
             end_file_reading_cpu - start_file_reading_cpu;
         /*time*/ file_reading_cpu += time_file_reading_cpu.count();
 
+        // std::cout << "number of modules: " << cells_per_event_cuda.size() <<
+        // "\n"; std::ofstream cells_file;
+        // cells_file.open("../debug_cells.txt");
+        // for (std::size_t i = 0; i < cells_per_event_cuda.size(); ++i) {
+        //     cells_file << "cells num: " << cells_per_event.at(i).items.size()
+        //     * sizeof(traccc::cell) << "\n";
+        // }
+        // cells_file.close();
+
+        vecmem::cuda::copy copy;
+        auto cells_data = traccc::get_data(cells_per_event_cuda, &mng_mr);
+
+        unsigned int num_modules = cells_per_event_cuda.size();
+
+        traccc::cell_container_types::buffer cells_buffer{
+            {num_modules, device_mr}, {cells_data.items, device_mr, &mng_mr}};
+        copy.setup(cells_buffer.headers);
+        copy.setup(cells_buffer.items);
+        copy(cells_data.headers, cells_buffer.headers);
+        copy(cells_data.items, cells_buffer.items);
         /*-----------------------------
               Clusterization (cpu)
           -----------------------------*/

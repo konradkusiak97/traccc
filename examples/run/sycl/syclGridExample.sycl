@@ -1,0 +1,206 @@
+/* TRACCC library, part of the ACTS project (R&D line)
+ *
+ * (c) 2021-2022 CERN for the benefit of the ACTS project
+ *
+ * Mozilla Public License Version 2.0
+ */
+
+// SYCL include(s)
+#include <CL/sycl.hpp>
+
+// io
+#include "traccc/io/csv.hpp"
+#include "traccc/io/reader.hpp"
+#include "traccc/io/utils.hpp"
+#include "traccc/io/writer.hpp"
+
+// algorithms
+#include "traccc/clusterization/clusterization_algorithm.hpp"
+#include "traccc/clusterization/spacepoint_formation.hpp"
+#include "traccc/seeding/seeding_algorithm.hpp"
+#include "traccc/seeding/track_params_estimation.hpp"
+#include "traccc/sycl/clusterization/clusterization_algorithm.hpp"
+#include "traccc/sycl/seeding/seeding_algorithm.hpp"
+#include "traccc/sycl/seeding/track_params_estimation.hpp"
+
+// performance
+#include "traccc/efficiency/seeding_performance_writer.hpp"
+
+// options
+#include "traccc/options/common_options.hpp"
+#include "traccc/options/full_tracking_input_options.hpp"
+#include "traccc/options/handle_argument_errors.hpp"
+
+// Vecmem include(s)
+#include <vecmem/memory/host_memory_resource.hpp>
+#include <vecmem/memory/sycl/device_memory_resource.hpp>
+#include <vecmem/memory/sycl/host_memory_resource.hpp>
+#include <vecmem/memory/sycl/shared_memory_resource.hpp>
+#include <vecmem/utils/sycl/copy.hpp>
+
+// Project include(s).
+#include "traccc/utils/memory_resource.hpp"
+
+// System include(s).
+#include <chrono>
+#include <exception>
+#include <iomanip>
+#include <iostream>
+
+#include "traccc/edm/cell.hpp"
+#include "traccc/edm/spacepoint.hpp"
+#include "traccc/seeding/detail/spacepoint_grid.hpp"
+namespace po = boost::program_options;
+
+// Simple asynchronous handler function
+auto handle_async_error = [](::sycl::exception_list elist) {
+    for (auto& e : elist) {
+        try {
+            std::rethrow_exception(e);
+        } catch (::sycl::exception& e) {
+            std::cout << "ASYNC EXCEPTION!!\n";
+            std::cout << e.what() << "\n";
+        }
+    }
+};
+
+int seq_run(const traccc::full_tracking_input_config& i_cfg,
+            const traccc::common_options& common_opts) {
+
+    // Read the surface transforms
+    auto surface_transforms = traccc::read_geometry(i_cfg.detector_file);
+
+    // Read the digitization configuration file
+    auto digi_cfg =
+        traccc::read_digitization_config(i_cfg.digitization_config_file);
+
+    // Creating SYCL queue object
+    ::sycl::queue q(handle_async_error);
+    std::cout << "Running Seeding on device: "
+              << q.get_device().get_info<::sycl::info::device::name>() << "\n";
+
+    // Memory resource used by the EDM.
+    vecmem::sycl::shared_memory_resource shared_mr(&q);
+    vecmem::sycl::host_memory_resource sycl_host_mr(&q);
+    vecmem::sycl::device_memory_resource device_mr(&q);
+
+    // Struct with memory resources to pass to SYCL algorithms
+    traccc::memory_resource mr{device_mr, &shared_mr};
+
+    // Memory resource used by the EDM.
+    // vecmem::host_memory_resource host_mr;
+
+    traccc::clusterization_algorithm ca(sycl_host_mr);
+    traccc::spacepoint_formation sp_f(sycl_host_mr);
+    // traccc::seed_finding sf(default_seedfinder_config(),
+    //                         traccc::seedfilter_config());
+    // traccc::spacepoint_binning sb(default_seedfinder_config(),
+    //                               default_spacepoint_grid_config(),
+    //                               sycl_host_mr);
+
+    traccc::sycl::clusterization_algorithm ca_sycl(mr, &q);
+    // traccc::sycl::seed_finding sf_sycl(default_seedfinder_config(), mr, &q);
+    traccc::sycl::spacepoint_binning sb_sycl(
+        default_seedfinder_config(), default_spacepoint_grid_config(), mr, &q);
+
+    // Loop over events
+    for (unsigned int event = common_opts.skip;
+         event < common_opts.events + common_opts.skip; ++event) {
+
+        // Read the cells from the relevant event file for CPU algorithm
+        traccc::cell_container_types::host cells_per_event =
+            traccc::read_cells_from_event(
+                event, i_cfg.cell_directory, common_opts.input_data_format,
+                surface_transforms, digi_cfg, shared_mr);
+
+        auto measurements_per_event = ca(cells_per_event);
+        auto spacepoints_per_event = sp_f(measurements_per_event);
+        // auto sp_grid = sb(spacepoints_per_event);
+
+        vecmem::sycl::copy copy(&q);
+
+        // auto cells_data =
+        //     traccc::get_data(cells_per_event, (mr.host ? mr.host :
+        //     &(mr.main)));
+
+        // unsigned int num_modules = cells_per_event.size();
+
+        // traccc::cell_container_types::buffer cells_buffer{
+        //     {num_modules, mr.main}, {cells_data.items, mr.main, mr.host}};
+        // copy.setup(cells_buffer.headers);
+        // copy.setup(cells_buffer.items);
+        // copy(cells_data.headers, cells_buffer.headers);
+        // copy(cells_data.items, cells_buffer.items,
+        // vecmem::copy::type::copy_type::host_to_device);
+        auto spacepoints_sycl_buff = ca_sycl(cells_per_event);
+        // auto sp_sizes =
+        //     copy.get_sizes(traccc::get_data(spacepoints_per_event).items);
+
+        // unsigned int size_sp = spacepoints_per_event.size();
+        // traccc::spacepoint_container_types::buffer spacepoints_buffer{
+        //     {size_sp, mr.main},
+        //     {std::vector<std::size_t>(sp_sizes.begin(), sp_sizes.end()),
+        //      std::vector<std::size_t>(sp_sizes.begin(), sp_sizes.end()),
+        //      mr.main, mr.host}};
+        // copy.setup(spacepoints_buffer.headers);
+        // copy.setup(spacepoints_buffer.items);
+        // copy(traccc::get_data(spacepoints_per_event).headers,
+        //      spacepoints_buffer.headers,
+        //      vecmem::copy::type::copy_type::host_to_device);
+        // copy(traccc::get_data(spacepoints_per_event).items,
+        //      spacepoints_buffer.items,
+        //      vecmem::copy::type::copy_type::host_to_device);
+        // for (int i = 0; i < 10; ++i)
+        // auto grid = sb_sycl(spacepoints_buffer);
+
+        // auto grid_sizes = copy.get_sizes(detray::get_data(sp_grid,
+        // *(mr.host))._data_view); traccc::sp_grid_buffer
+        // grid_buff(sp_grid.axis_p0(), sp_grid.axis_p1(),
+        // std::vector<std::size_t>(grid_sizes.begin(), grid_sizes.end()),
+        // mr.main, mr.host);
+
+        // copy.setup(grid_buff._buffer);
+        // copy(detray::get_data(sp_grid, *(mr.host) )._data_view,
+        // grid_buff._buffer);
+
+        // auto sycl_seeds_buff = sf_sycl(spacepoints_sycl_buffer, grid_buff);
+        // auto seeds_sycl_buffer =
+        //     sa_sycl(traccc::get_data(spacepoints_per_event));
+        // auto
+
+        std::cout << "event: " << event << " success\n";
+    }
+
+    return 0;
+}
+
+// The main routine
+//
+int main(int argc, char* argv[]) {
+    // Set up the program options
+    po::options_description desc("Allowed options");
+
+    // Add options
+    desc.add_options()("help,h", "Give some help with the program's options");
+    traccc::common_options common_opts(desc);
+    traccc::full_tracking_input_config full_tracking_input_cfg(desc);
+    desc.add_options()("run_cpu", po::value<bool>()->default_value(false),
+                       "run cpu tracking as well");
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+
+    // Check errors
+    traccc::handle_argument_errors(vm, desc);
+
+    // Read options
+    common_opts.read(vm);
+    full_tracking_input_cfg.read(vm);
+
+    std::cout << "Running " << argv[0] << " "
+              << full_tracking_input_cfg.detector_file << " "
+              << full_tracking_input_cfg.cell_directory << " "
+              << common_opts.events << std::endl;
+
+    return seq_run(full_tracking_input_cfg, common_opts);
+}
