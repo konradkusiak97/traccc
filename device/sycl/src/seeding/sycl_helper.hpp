@@ -16,10 +16,9 @@
 // VecMem include(s).
 #include <vecmem/containers/jagged_device_vector.hpp>
 
-namespace traccc {
-namespace sycl {
+namespace traccc::sycl {
 
-// Short aliast for accessor to local memory (shared memory in CUDA)
+// Short alias for accessor to local memory (shared memory in CUDA)
 template <typename T>
 using local_accessor = ::sycl::accessor<T, 1, ::sycl::access::mode::read_write,
                                         ::sycl::access::target::local>;
@@ -27,49 +26,12 @@ using local_accessor = ::sycl::accessor<T, 1, ::sycl::access::mode::read_write,
 // Some useful helper funcitons
 struct sycl_helper {
 
-    /*
-    /// Function that performs reduction on the local memory using subgroup
-    /// operations
-    ///
-    /// @param array pointer to an array in local memory
-    /// @param item sycl nd_item for quering local indexes and groups
-    static void reduceInShared(
-        ::sycl::multi_ptr<int, ::sycl::access::address_space::local_space>
-            array,
-        ::sycl::nd_item<1>& item) {
-        auto workItemIdx = item.get_local_id(0);
-        auto sg = item.get_sub_group();
-        auto workGroup = item.get_group();
-        auto groupDim = item.get_local_range(0);
-
-        // Comment out the first two lines of shift_left for Intel platform (min
-        // blockSize is 8 in that case)
-        array[workItemIdx] +=
-            ::sycl::shift_group_left(sg, array[workItemIdx], 16);
-        array[workItemIdx] +=
-            ::sycl::shift_group_left(sg, array[workItemIdx], 8);
-        array[workItemIdx] +=
-            ::sycl::shift_group_left(sg, array[workItemIdx], 4);
-        array[workItemIdx] +=
-            ::sycl::shift_group_left(sg, array[workItemIdx], 2);
-        array[workItemIdx] +=
-            ::sycl::shift_group_left(sg, array[workItemIdx], 1);
-
-        ::sycl::group_barrier(workGroup);
-
-        if (workItemIdx == 0) {
-            for (int i = 1; i < groupDim / 32; i++) {
-                array[workItemIdx] += array[i * 32];
-            }
-        }
-    }
-    */
-
     /// Get index of header vector of event data container for a given block ID.
     ///
     /// @param jag_vec the item jagged vector of edm
     /// @param header_idx the header idx
     /// @param ref_block_idx the reference block idx for a given header idx
+    ///
     template <typename T>
     static void find_idx_on_jagged_vector(
         const vecmem::jagged_device_vector<T>& jag_vec,
@@ -103,12 +65,14 @@ struct sycl_helper {
         }
         item_idx = (groupIdx - ref_block_idx) * groupDim + workItemIdx;
     }
+
     /// Get index of header vector of event data container for a given block ID.
     ///
     /// @param container event data container where header element indicates the
     /// number of elements in item vector
     /// @param header_idx the header idx
     /// @param ref_block_idx the reference block idx for a given header idx
+    ///
     template <typename header_t, typename item_t>
     static void find_idx_on_container(
         const device_container<header_t, item_t>& container,
@@ -146,5 +110,4 @@ struct sycl_helper {
     }
 };
 
-}  // namespace sycl
-}  // namespace traccc
+}  // namespace traccc::sycl
